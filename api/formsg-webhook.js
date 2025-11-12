@@ -86,7 +86,7 @@ export default async function handler(req, res) {
     // Handle different FormSG payload formats
     if (req.body.data) {
       // Encrypted submission format
-      const secretKey = process.env.FORMSG_SECRET_KEY;
+      const secretKey = process.env.FORMSG_WEBHOOK_SECRET;
       const decryptedData = decryptSubmission(req.body.data, secretKey);
       submissions = decryptedData.responses || decryptedData;
       formData = {
