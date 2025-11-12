@@ -31,7 +31,7 @@ REACT_APP_FIREBASE_STORAGE_BUCKET=add-a-web-app-fcd6c.firebasestorage.app
 REACT_APP_FIREBASE_MESSAGING_SENDER_ID=1038860701851
 REACT_APP_FIREBASE_APP_ID=1:1038860701851:web:f8c1b71789aee83d58f63e
 REACT_APP_FIREBASE_MEASUREMENT_ID=G-4CSGKYLW3H
-DOMAIN=https://registration-smoky-chi.vercel.app
+DOMAIN=https://registration-orpin-alpha.vercel.app
 ```
 
 Create `.env.local` file with Firebase service account:
@@ -43,7 +43,7 @@ FIREBASE_SERVICE_ACCOUNT={"type":"service_account","project_id":"add-a-web-app-f
 
 Configure FormSG webhook URL:
 ```
-https://registration-smoky-chi.vercel.app/api/formsg-webhook
+https://registration-orpin-alpha.vercel.app/api/formsg-webhook
 ```
 
 ### Generate QR Codes
@@ -87,7 +87,7 @@ This creates QR code images for all 11 booths.
 ## 🚀 Deployment
 
 Deployed on Vercel at:
-- Primary: https://registration-smoky-chi.vercel.app
+- Primary: https://registration-orpin-alpha.vercel.app
 - Git branch: https://registration-git-main-xuejuns-projects.vercel.app
 
 ## 📋 Booth Layout

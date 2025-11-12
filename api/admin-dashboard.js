@@ -165,8 +165,8 @@ export default async function handler(req, res) {
         <div style="margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 8px;">
             <h3>📱 Access Links</h3>
             <p><strong>FormSG Form:</strong> <a href="https://form.gov.sg/6911b9ea7b7a150c5e112447" target="_blank">https://form.gov.sg/6911b9ea7b7a150c5e112447</a></p>
-            <p><strong>Stamp Collection App:</strong> <a href="/stamps" target="_blank">https://registration-smoky-chi.vercel.app/stamps</a></p>
-            <p><strong>Test Webhook:</strong> <a href="/api/formsg-test" target="_blank">https://registration-smoky-chi.vercel.app/api/formsg-test</a></p>
+            <p><strong>Stamp Collection App:</strong> <a href="/stamps" target="_blank">https://registration-orpin-alpha.vercel.app/stamps</a></p>
+            <p><strong>Test Webhook:</strong> <a href="/api/formsg-test" target="_blank">https://registration-orpin-alpha.vercel.app/api/formsg-test</a></p>
         </div>
 
         <div style="margin-top: 20px; text-align: center; color: #666; font-size: 0.9em;">

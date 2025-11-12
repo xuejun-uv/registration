@@ -6,12 +6,12 @@
 
 In your FormSG form settings, set the webhook URL to:
 ```
-https://registration-smoky-chi.vercel.app/api/formsg-webhook
+https://registration-orpin-alpha.vercel.app/api/formsg-webhook
 ```
 
 For testing, you can also use:
 ```
-https://registration-smoky-chi.vercel.app/api/formsg-test
+https://registration-orpin-alpha.vercel.app/api/formsg-test
 ```
 
 ### **2. FormSG Webhook Data Format**
@@ -87,14 +87,14 @@ FORMSG_SECRET_KEY=your_secret_key_from_formsg
 #### **Test Endpoint:**
 Use `/api/formsg-test` to see exactly what data FormSG is sending:
 ```bash
-curl -X POST https://registration-smoky-chi.vercel.app/api/formsg-test \
+curl -X POST https://registration-orpin-alpha.vercel.app/api/formsg-test \
   -H "Content-Type: application/json" \
   -d '{"test": "data"}'
 ```
 
 #### **Manual Test:**
 ```bash
-curl -X POST https://registration-smoky-chi.vercel.app/api/formsg-webhook \
+curl -X POST https://registration-orpin-alpha.vercel.app/api/formsg-webhook \
   -H "Content-Type: application/json" \
   -d '{
     "formId": "test123",
@@ -111,7 +111,7 @@ curl -X POST https://registration-smoky-chi.vercel.app/api/formsg-webhook \
 In your FormSG form (https://form.gov.sg/6911b9ea7b7a150c5e112447):
 
 1. **Add Webhook Settings**:
-   - Webhook URL: `https://registration-smoky-chi.vercel.app/api/formsg-webhook`
+   - Webhook URL: `https://registration-orpin-alpha.vercel.app/api/formsg-webhook`
    - Method: POST
    - Content-Type: application/json
 
@@ -128,7 +128,7 @@ In your FormSG form (https://form.gov.sg/6911b9ea7b7a150c5e112447):
 
 ```
 FormSG Form → Webhook → Firebase → User gets redirected to:
-https://registration-smoky-chi.vercel.app/stamps?id={userId}
+https://registration-orpin-alpha.vercel.app/stamps?id={userId}
 ```
 
 ### **8. Debugging**
@@ -154,7 +154,7 @@ Successful webhook response:
   "userId": "uuid-generated-id",
   "email": "user@example.com",
   "name": "User Name",
-  "redirectUrl": "https://registration-smoky-chi.vercel.app/stamps?id=uuid",
+  "redirectUrl": "https://registration-orpin-alpha.vercel.app/stamps?id=uuid",
   "message": "Registration completed successfully",
   "timestamp": "2023-11-12T10:30:00.000Z"
 }

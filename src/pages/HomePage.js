@@ -37,7 +37,7 @@ const HomePage = () => {
 
   const goToFormSG = () => {
     // For FormSG integration, you might need to configure the webhook URL
-    // The webhook should be: https://registration-smoky-chi.vercel.app/api/formsg-webhook
+    // The webhook should be: https://registration-orpin-alpha.vercel.app/api/formsg-webhook
     window.location.href = "https://form.gov.sg/6911b9ea7b7a150c5e112447";
   };
 

@@ -176,7 +176,7 @@ export default async function handler(req, res) {
     console.log(`🎯 Stamp card created with ${stampArray.length} booths`);
     
     // Generate redirect URL with user ID
-    const redirectUrl = `${process.env.DOMAIN || 'https://registration-smoky-chi.vercel.app'}/stamps?id=${userId}`;
+    const redirectUrl = `${process.env.DOMAIN || 'https://registration-orpin-alpha.vercel.app'}/stamps?id=${userId}`;
     
     // Return success response
     return res.status(200).json({
