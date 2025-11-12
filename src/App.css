@@ -4,6 +4,22 @@
   padding: 0;
 }
 
+/* Remove all borders, outlines, and shadows globally */
+*, *::before, *::after {
+  box-shadow: none !important;
+  border: none !important;
+  outline: none !important;
+}
+
+/* Exception: Keep borders for stamp boxes for visual clarity */
+.stamp-box {
+  border: 2px dashed #ccc !important;
+}
+
+.stamp-box.filled {
+  border: 2px solid #28a745 !important;
+}
+
 body {
   font-family: 'Poppins', sans-serif;
   background: linear-gradient(180deg, #ffffff, #f0f4ff);
@@ -15,14 +31,16 @@ body {
 }
 
 .container {
-  width: 90%;
-  max-width: 400px;
-  margin: 0 auto;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
   text-align: center;
-  background: white;
+  background: transparent;
   padding: 20px;
-  border-radius: 20px;
-  box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+  border-radius: 0;
+  box-shadow: none;
+  border: none;
+  outline: none;
 }
 
 .title {
@@ -98,9 +116,17 @@ body {
   }
   
   .container {
-    width: 95%;
-    padding: 15px;
-    margin: 10px auto;
+    width: 100%;
+    padding: 10px;
+    margin: 0;
+  }
+  
+  .home-page {
+    padding: 10px;
+  }
+  
+  .stamp-page {
+    padding: 10px;
   }
   
   .title {
@@ -127,6 +153,19 @@ body {
 
 /* Larger mobile screens */
 @media (min-width: 481px) and (max-width: 768px) {
+  .container {
+    width: 100%;
+    padding: 15px;
+  }
+  
+  .home-page {
+    padding: 15px;
+  }
+  
+  .stamp-page {
+    padding: 15px;
+  }
+  
   .stamp-grid {
     grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
     gap: 15px;
@@ -160,14 +199,17 @@ h2 {
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  padding: 20px;
+  padding: 10px;
   text-align: center;
+  width: 100%;
 }
 
 .stamp-page {
-  padding: 20px;
-  max-width: 100vw;
+  padding: 10px;
+  max-width: 100%;
+  width: 100%;
   min-height: 100vh;
+  margin: 0;
 }
 
 .user-info {
