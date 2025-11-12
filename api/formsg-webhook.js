@@ -1,7 +1,8 @@
 import admin from 'firebase-admin';
 import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
-import formsg from '@opengovsg/formsg-sdk';
+// Temporarily comment out FormSG SDK to isolate the issue
+// import formsg from '@opengovsg/formsg-sdk';
 
 function initAdmin() {
   if (!admin.apps.length) {
@@ -10,12 +11,12 @@ function initAdmin() {
   }
 }
 
-// Initialize FormSG SDK
-const formsgSdk = formsg({
-  mode: 'production' // Use 'staging' for testing
-});
+// Initialize FormSG SDK - temporarily disabled for debugging
+// const formsgSdk = formsg({
+//   mode: 'production' // Use 'staging' for testing
+// });
 
-// Enhanced signature verification using FormSG SDK
+// Enhanced signature verification using FormSG SDK - temporarily disabled
 function verifyFormSGSignature(uri, submissionId, formId, signature, secretKey) {
   try {
     if (!secretKey || !signature) {
@@ -23,20 +24,24 @@ function verifyFormSGSignature(uri, submissionId, formId, signature, secretKey) 
       return true; // Skip verification if no secret configured
     }
     
-    return formsgSdk.webhooks.authenticate({
-      uri,
-      submissionId,
-      formId,
-      signature,
-      secretKey
-    });
+    // Temporarily return true to bypass FormSG SDK
+    console.log('⚠️ FormSG SDK verification temporarily disabled');
+    return true;
+    
+    // return formsgSdk.webhooks.authenticate({
+    //   uri,
+    //   submissionId,
+    //   formId,
+    //   signature,
+    //   secretKey
+    // });
   } catch (error) {
     console.error('❌ FormSG signature verification failed:', error);
     return false;
   }
 }
 
-// Enhanced decryption using FormSG SDK
+// Enhanced decryption using FormSG SDK - temporarily disabled
 function decryptFormSGSubmission(encryptedContent, secretKey) {
   try {
     if (!secretKey) {
@@ -45,8 +50,13 @@ function decryptFormSGSubmission(encryptedContent, secretKey) {
         JSON.parse(encryptedContent) : encryptedContent;
     }
 
+    // Temporarily bypass FormSG SDK decryption
+    console.log('⚠️ FormSG SDK decryption temporarily disabled');
+    return typeof encryptedContent === 'string' ? 
+      JSON.parse(encryptedContent) : encryptedContent;
+
     // Use FormSG SDK for decryption
-    return formsgSdk.crypto.decrypt(secretKey, encryptedContent);
+    // return formsgSdk.crypto.decrypt(secretKey, encryptedContent);
   } catch (error) {
     console.error('Decryption failed, treating as plain text:', error);
     return typeof encryptedContent === 'string' ? 
@@ -97,19 +107,31 @@ function decryptSubmission(encryptedContent, secretKey) {
 }
 
 export default async function handler(req, res) {
+  // Add comprehensive error handling and logging
+  console.log('🚀 FormSG webhook called');
+  console.log('📝 Method:', req.method);
+  console.log('📝 Headers:', JSON.stringify(req.headers, null, 2));
+  console.log('📝 Body:', JSON.stringify(req.body, null, 2));
+  
   // Only accept POST requests from FormSG
   if (req.method !== 'POST') {
+    console.log('❌ Method not allowed:', req.method);
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
+    console.log('🔥 Initializing Firebase Admin...');
     initAdmin();
     const db = admin.firestore();
+    console.log('✅ Firebase Admin initialized successfully');
     
     // Get raw body for signature verification
     const rawBody = JSON.stringify(req.body);
     const signature = req.headers['x-formsg-signature'];
     const webhookSecret = process.env.FORMSG_WEBHOOK_SECRET;
+    
+    console.log('🔑 Webhook secret configured:', !!webhookSecret);
+    console.log('🔑 Signature present:', !!signature);
     
     // Enhanced signature verification using FormSG SDK
     if (webhookSecret && signature) {

@@ -78,7 +78,16 @@ const HomePage = () => {
         })
       });
 
-      const result = await response.json();
+      let result;
+      try {
+        const responseText = await response.text();
+        console.log('🔍 Raw response:', responseText);
+        result = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('❌ JSON Parse Error:', parseError);
+        setMessage(`❌ Server returned invalid response: ${parseError.message}`);
+        return;
+      }
       
       if (result.success) {
         setMessage(`✅ Test successful! User ID: ${result.userId}`);
@@ -86,10 +95,11 @@ const HomePage = () => {
           navigate(`/stamps?id=${result.userId}`);
         }, 2000);
       } else {
-        setMessage(`❌ Test failed: ${result.message}`);
+        setMessage(`❌ Test failed: ${result.message || 'Unknown error'}`);
       }
       
     } catch (error) {
+      console.error('❌ Network/Fetch Error:', error);
       setMessage(`❌ Error testing form: ${error.message}`);
     }
   };

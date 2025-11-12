@@ -63,7 +63,29 @@ const FormTestPage = () => {
         body: JSON.stringify(webhookPayload)
       });
 
-      const result = await res.json();
+      let result;
+      let responseText;
+      try {
+        responseText = await res.text();
+        console.log('🔍 Raw response:', responseText);
+        console.log('🔍 Response status:', res.status);
+        console.log('🔍 Response headers:', Object.fromEntries(res.headers.entries()));
+        
+        result = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('❌ JSON Parse Error:', parseError);
+        setResponse({
+          status: res.status,
+          data: { 
+            error: 'Invalid JSON response',
+            parseError: parseError.message,
+            rawResponse: responseText || 'No response body'
+          },
+          success: false
+        });
+        return;
+      }
+
       setResponse({
         status: res.status,
         data: result,
@@ -71,9 +93,13 @@ const FormTestPage = () => {
       });
 
     } catch (error) {
+      console.error('❌ Network/Fetch Error:', error);
       setResponse({
         status: 500,
-        data: { error: error.message },
+        data: { 
+          error: 'Network error',
+          message: error.message 
+        },
         success: false
       });
     } finally {
