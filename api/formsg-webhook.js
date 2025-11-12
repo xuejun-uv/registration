@@ -1,6 +1,7 @@
 import admin from 'firebase-admin';
 import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
+import formsg from '@opengovsg/formsg-sdk';
 
 function initAdmin() {
   if (!admin.apps.length) {
@@ -9,7 +10,51 @@ function initAdmin() {
   }
 }
 
-// Function to verify FormSG signature (optional but recommended)
+// Initialize FormSG SDK
+const formsgSdk = formsg({
+  mode: 'production' // Use 'staging' for testing
+});
+
+// Enhanced signature verification using FormSG SDK
+function verifyFormSGSignature(uri, submissionId, formId, signature, secretKey) {
+  try {
+    if (!secretKey || !signature) {
+      console.log('⚠️ No signature verification configured');
+      return true; // Skip verification if no secret configured
+    }
+    
+    return formsgSdk.webhooks.authenticate({
+      uri,
+      submissionId,
+      formId,
+      signature,
+      secretKey
+    });
+  } catch (error) {
+    console.error('❌ FormSG signature verification failed:', error);
+    return false;
+  }
+}
+
+// Enhanced decryption using FormSG SDK
+function decryptFormSGSubmission(encryptedContent, secretKey) {
+  try {
+    if (!secretKey) {
+      console.log('No secret key provided, assuming unencrypted data');
+      return typeof encryptedContent === 'string' ? 
+        JSON.parse(encryptedContent) : encryptedContent;
+    }
+
+    // Use FormSG SDK for decryption
+    return formsgSdk.crypto.decrypt(secretKey, encryptedContent);
+  } catch (error) {
+    console.error('Decryption failed, treating as plain text:', error);
+    return typeof encryptedContent === 'string' ? 
+      JSON.parse(encryptedContent) : encryptedContent;
+  }
+}
+
+// Legacy function for backward compatibility
 function verifySignature(body, signature, secret) {
   if (!secret || !signature) return true; // Skip verification if no secret configured
   
@@ -66,9 +111,24 @@ export default async function handler(req, res) {
     const signature = req.headers['x-formsg-signature'];
     const webhookSecret = process.env.FORMSG_WEBHOOK_SECRET;
     
-    // Verify signature if secret is configured
+    // Enhanced signature verification using FormSG SDK
     if (webhookSecret && signature) {
-      const isValid = verifySignature(rawBody, signature, webhookSecret);
+      const requestUri = `${req.headers.host || 'localhost'}${req.url}`;
+      const submissionId = req.body.submissionId || 'unknown';
+      const formId = req.body.formId || 'unknown';
+      
+      // Try FormSG SDK verification first
+      let isValid = false;
+      try {
+        isValid = verifyFormSGSignature(requestUri, submissionId, formId, signature, webhookSecret);
+        console.log('✅ FormSG SDK signature verification:', isValid ? 'SUCCESS' : 'FAILED');
+      } catch (error) {
+        console.log('⚠️ FormSG SDK verification failed, trying legacy method...');
+        // Fallback to legacy verification
+        isValid = verifySignature(rawBody, signature, webhookSecret);
+        console.log('✅ Legacy signature verification:', isValid ? 'SUCCESS' : 'FAILED');
+      }
+      
       if (!isValid) {
         console.error('❌ Invalid FormSG signature');
         return res.status(401).json({ error: 'Unauthorized - Invalid signature' });
