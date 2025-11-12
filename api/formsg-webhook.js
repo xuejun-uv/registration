@@ -70,15 +70,15 @@ export default async function handler(req, res) {
     if (webhookSecret && signature) {
       const isValid = verifySignature(rawBody, signature, webhookSecret);
       if (!isValid) {
-        console.error('Invalid FormSG signature');
+        console.error('❌ Invalid FormSG signature');
         return res.status(401).json({ error: 'Unauthorized - Invalid signature' });
       }
+      console.log('✅ FormSG signature verified successfully');
     }
     
-    console.log('FormSG webhook received:', {
-      headers: req.headers,
-      bodyKeys: Object.keys(req.body)
-    });
+    // Enhanced logging
+    console.log('🔔 FormSG webhook received at:', new Date().toISOString());
+    console.log('📝 Raw body:', JSON.stringify(req.body, null, 2));
     
     let formData = req.body;
     let submissions = [];
@@ -133,6 +133,14 @@ export default async function handler(req, res) {
       if (formData.email) email = formData.email;
       else if (formData.data?.email) email = formData.data.email;
     }
+
+    // Log extracted form data
+    console.log('✅ FormSG webhook received:', { 
+      email: email || "N/A", 
+      name: name || "N/A",
+      formId: formData.formId || 'unknown',
+      timestamp: new Date().toISOString()
+    });
     
     // Generate unique user ID
     const userId = uuidv4();
@@ -163,7 +171,9 @@ export default async function handler(req, res) {
       userId: userId
     });
     
-    console.log(`✅ Created user ${userId} with email: ${email}, name: ${name}`);
+    console.log(`✅ Created user ${userId} with email: ${email || "N/A"}, name: ${name || "N/A"}`);
+    console.log(`📍 User ID: ${userId}`);
+    console.log(`🎯 Stamp card created with ${stampArray.length} booths`);
     
     // Generate redirect URL with user ID
     const redirectUrl = `${process.env.DOMAIN || 'https://registration-smoky-chi.vercel.app'}/stamps?id=${userId}`;
