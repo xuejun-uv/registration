@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@opengovsg/formsg-sdk": "^0.16.1",
     "firebase": "^12.5.0",
     "firebase-admin": "^13.6.0",
     "qr-scanner": "^1.4.2",

@@ -1,0 +1,25 @@
+name: Publish to NPM
+
+on:
+  push:
+    branches:
+      - release
+
+jobs:
+  publish:
+    name: Publish to NPM
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write # Required for OIDC
+    steps:
+      - uses: actions/checkout@v4
+      # Setup .npmrc file to publish to NPM
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          registry-url: 'https://registry.npmjs.org'
+          cache: npm
+      - name: Update npm
+        run: npm install -g npm@latest # Ensure npm 11.5.1 or later is installed for OIDC support
+      - run: npm ci
+      - run: npm publish
