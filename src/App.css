@@ -81,16 +81,16 @@ body {
 
 .stamp-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(100px, 100px));
   gap: 12px;
   margin: 20px 0;
   padding: 0 10px;
+  justify-content: center;
 }
 
 .stamp-box {
-  width: 100%;
-  aspect-ratio: 1 / 1;
-  min-height: 80px;
+  width: 100px;
+  height: 100px;
   border-radius: 10px;
   border: 2px dashed #ccc;
   display: flex;
@@ -100,6 +100,8 @@ body {
   color: #007bff;
   transition: all 0.3s ease;
   background: #fafafa;
+  position: relative;
+  overflow: hidden;
 }
 
 .stamp-box.filled {
@@ -139,14 +141,16 @@ body {
   }
   
   .stamp-grid {
-    grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(80px, 80px));
     gap: 8px;
     margin: 15px 0;
     padding: 0 5px;
+    justify-content: center;
   }
   
   .stamp-box {
-    min-height: 70px;
+    width: 80px;
+    height: 80px;
     border-radius: 8px;
   }
 }
@@ -167,12 +171,14 @@ body {
   }
   
   .stamp-grid {
-    grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(90px, 90px));
     gap: 15px;
+    justify-content: center;
   }
   
   .stamp-box {
-    min-height: 90px;
+    width: 90px;
+    height: 90px;
   }
 }
 

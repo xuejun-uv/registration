@@ -113,13 +113,13 @@ const StampPage = () => {
         )}
 
         <h2>Discovery Atrium</h2>
-        <StampGrid count={4} stamps={stamps.slice(0, 4)} />
+        <StampGrid count={4} stamps={stamps.slice(0, 4)} startIndex={1} />
 
         <h2>Envision Gallery</h2>
-        <StampGrid count={3} stamps={stamps.slice(4, 7)} />
+        <StampGrid count={3} stamps={stamps.slice(4, 7)} startIndex={5} />
 
         <h2>Experience Zone</h2>
-        <StampGrid count={4} stamps={stamps.slice(7, 11)} />
+        <StampGrid count={4} stamps={stamps.slice(7, 11)} startIndex={8} />
         
         <div style={{ 
           marginTop: "30px", 
