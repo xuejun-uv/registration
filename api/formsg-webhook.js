@@ -48,42 +48,103 @@ export default async function handler(req, res) {
       }
     }
 
-    // Handle FormSG webhook data - extract what we can
-    const { formId, submissionId, encryptedContent, created, responses } = req.body;
+    // Handle FormSG webhook data - for simple email-only form
+    console.log('=== Raw FormSG Webhook Data ===');
+    console.log('Full request body:', JSON.stringify(req.body, null, 2));
+    console.log('Request body type:', typeof req.body);
+    console.log('Request body keys:', Object.keys(req.body));
+    
+    const { formId, submissionId, encryptedContent, created, responses, data } = req.body;
     
     console.log('Form ID:', formId);
     console.log('Submission ID:', submissionId);
     console.log('Created:', created);
     console.log('Has encrypted content:', !!encryptedContent);
     console.log('Has direct responses:', !!responses);
+    console.log('Has data field:', !!data);
+    console.log('Data field type:', typeof data);
 
-    // For now, save the raw webhook data and create user record
-    let email = 'unknown@example.com'; // Default email
-    let name = 'Form Respondent'; // Default name
+    // Extract email from FormSG form (single email field)
+    let email = 'unknown@example.com';
     let otherData = {};
 
-    // Try to extract any available data
+    console.log('=== Attempting to extract email ===');
+
+    // Method 1: Check direct responses array
     if (responses && Array.isArray(responses)) {
+      console.log('Method 1: Processing responses array...');
       responses.forEach((response, index) => {
-        const question = (response.question || response.field || `field_${index}`).toLowerCase();
+        const question = (response.question || response.field || `field_${index}`);
         const answer = response.answer || response.value || '';
         
-        console.log(`Field ${index}: ${question} = ${answer}`);
+        console.log(`Response ${index}:`, {
+          question: question,
+          answer: answer,
+          fieldType: response.fieldType
+        });
         
-        if (question.includes('email')) {
-          email = answer;
+        // For email-only form, any response with @ symbol is likely the email
+        if (answer && answer.includes('@')) {
+          email = answer.trim();
+          console.log('✅ Found email in responses:', email);
         }
         
-        if (question.includes('name')) {
-          name = answer;
-        }
-        
-        otherData[response.question || response.field || `field_${index}`] = answer;
+        otherData[question || `field_${index}`] = answer;
       });
     }
 
-    console.log('Extracted email:', email);
-    console.log('Extracted name:', name);
+    // Method 2: Check if data field contains form responses
+    if (data && typeof data === 'object') {
+      console.log('Method 2: Processing data object...');
+      console.log('Data object:', JSON.stringify(data, null, 2));
+      
+      // Handle different data structures
+      if (data.responses && Array.isArray(data.responses)) {
+        data.responses.forEach((response, index) => {
+          const answer = response.answer || response.value || '';
+          console.log(`Data response ${index}:`, response);
+          
+          if (answer && answer.includes('@')) {
+            email = answer.trim();
+            console.log('✅ Found email in data.responses:', email);
+          }
+        });
+      }
+    }
+
+    // Method 3: Check if encryptedContent exists (need to handle encryption)
+    if (encryptedContent && typeof encryptedContent === 'string') {
+      console.log('Method 3: Has encrypted content, length:', encryptedContent.length);
+      console.log('Encrypted content sample:', encryptedContent.substring(0, 100) + '...');
+      // For now, log that we have encrypted content but can't decrypt without proper key
+      console.log('⚠️ Encrypted content detected but not decrypted yet');
+    }
+
+    // Method 4: Check top-level fields in request body
+    console.log('Method 4: Checking top-level fields...');
+    Object.keys(req.body).forEach(key => {
+      const value = req.body[key];
+      console.log(`Top-level field ${key}:`, typeof value, value);
+      
+      if (typeof value === 'string' && value.includes('@')) {
+        email = value.trim();
+        console.log('✅ Found email in top-level field:', email);
+      }
+    });
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (email !== 'unknown@example.com') {
+      if (!emailRegex.test(email)) {
+        console.log('⚠️ Invalid email format detected:', email);
+      } else {
+        console.log('✅ Valid email format confirmed:', email);
+      }
+    } else {
+      console.log('❌ No email found in any method, using default');
+    }
+
+    console.log('📧 Extracted email:', email);
 
     // Generate unique user ID
     const userId = uuidv4();
@@ -95,11 +156,11 @@ export default async function handler(req, res) {
       filledAt: null
     }));
 
-    // Save user data to Firebase
+    // Save user data to Firebase (email-based registration)
     const userData = {
       userId,
       email,
-      name,
+      name: email.split('@')[0], // Use email prefix as display name
       formId: formId || 'unknown',
       submissionId: submissionId || userId,
       submissionData: otherData,
@@ -116,16 +177,19 @@ export default async function handler(req, res) {
       updatedAt: new Date().toISOString()
     });
 
-    console.log('✅ User and stamp card created successfully');
-    console.log('User ID:', userId);
+    console.log('✅ User registration and stamp card created successfully');
+    console.log('📧 Email:', email);
+    console.log('🆔 User ID:', userId);
+    console.log('🎯 Stamp collection URL:', `${process.env.DOMAIN || 'https://registration-orpin-alpha.vercel.app'}/stamps?id=${userId}`);
 
-    // Generate redirect URL
+    // Generate redirect URL for immediate access to stamp collection
     const redirectUrl = `${process.env.DOMAIN || 'https://registration-orpin-alpha.vercel.app'}/stamps?id=${userId}&success=true`;
 
     // Return success response to FormSG
     return res.status(200).json({
       success: true,
-      message: 'Form submission processed successfully',
+      message: 'Email registered successfully - stamp collection ready!',
+      email: email,
       userId: userId,
       redirectUrl: redirectUrl,
       timestamp: new Date().toISOString()
