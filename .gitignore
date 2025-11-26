@@ -31,3 +31,5 @@ qr-booth*.png
 
 # Other sensitive files
 copy.zip
+
+.vercel
