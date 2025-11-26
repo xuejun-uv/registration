@@ -10,9 +10,31 @@ const StampPage = () => {
   const [isScanning, setIsScanning] = useState(false);
   const [cameraError, setCameraError] = useState("");
   const [qrScanner, setQrScanner] = useState(null);
+  const [permissionState, setPermissionState] = useState("prompt"); // "granted", "denied", "prompt"
 
   const id = searchParams.get("id");
   const booth = searchParams.get("booth");
+
+  // Check camera permission on component mount
+  useEffect(() => {
+    const checkCameraPermission = async () => {
+      try {
+        if (navigator.permissions && navigator.permissions.query) {
+          const permission = await navigator.permissions.query({ name: 'camera' });
+          setPermissionState(permission.state);
+          
+          // Listen for permission changes
+          permission.addEventListener('change', () => {
+            setPermissionState(permission.state);
+          });
+        }
+      } catch (error) {
+        console.log("Permission API not supported, will request on demand");
+      }
+    };
+    
+    checkCameraPermission();
+  }, []);
 
   // Initialize stamps array
   useEffect(() => {
@@ -51,6 +73,131 @@ const StampPage = () => {
     }
   }, [id, booth]);
 
+  // Request camera permission explicitly
+  const requestCameraPermission = async () => {
+    try {
+      setCameraError("");
+      
+      // Show user-friendly permission request message
+      const permissionDialog = document.createElement("div");
+      permissionDialog.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.8);
+        z-index: 2000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        box-sizing: border-box;
+      `;
+      
+      const dialogContent = document.createElement("div");
+      dialogContent.style.cssText = `
+        background: white;
+        padding: 30px;
+        border-radius: 20px;
+        text-align: center;
+        max-width: 400px;
+        width: 100%;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+      `;
+      
+      dialogContent.innerHTML = `
+        <div style="font-size: 48px; margin-bottom: 16px;">📷</div>
+        <h2 style="margin: 0 0 16px 0; color: #333; font-size: 20px;">Camera Permission Required</h2>
+        <p style="color: #666; margin: 0 0 24px 0; line-height: 1.5;">
+          This app needs access to your camera to scan QR codes at event booths. 
+          Your camera will only be used for QR code scanning.
+        </p>
+        <div style="display: flex; gap: 12px; justify-content: center;">
+          <button id="allowCamera" style="
+            background: #22c55e;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 16px;
+          ">✅ Allow Camera</button>
+          <button id="denyCamera" style="
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 16px;
+          ">❌ Cancel</button>
+        </div>
+      `;
+      
+      permissionDialog.appendChild(dialogContent);
+      document.body.appendChild(permissionDialog);
+      
+      return new Promise((resolve, reject) => {
+        const allowButton = document.getElementById("allowCamera");
+        const denyButton = document.getElementById("denyCamera");
+        
+        const cleanup = () => {
+          permissionDialog.remove();
+        };
+        
+        allowButton.onclick = async () => {
+          cleanup();
+          try {
+            // Request camera permission
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+              video: { 
+                facingMode: 'environment',
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+              } 
+            });
+            
+            // Stop the stream immediately (we just needed permission)
+            stream.getTracks().forEach(track => track.stop());
+            
+            setPermissionState("granted");
+            resolve(true);
+          } catch (error) {
+            console.error("Camera permission denied:", error);
+            
+            let errorMessage = "Camera permission was denied";
+            if (error.name === 'NotAllowedError') {
+              errorMessage = "📷 Camera access blocked. Please enable camera permissions in your browser settings.";
+            } else if (error.name === 'NotFoundError') {
+              errorMessage = "📵 No camera found on this device.";
+            } else if (error.name === 'NotReadableError') {
+              errorMessage = "📷 Camera is being used by another application.";
+            }
+            
+            setCameraError(errorMessage);
+            setPermissionState("denied");
+            reject(error);
+          }
+        };
+        
+        denyButton.onclick = () => {
+          cleanup();
+          setCameraError("Camera permission is required to scan QR codes");
+          setPermissionState("denied");
+          reject(new Error("User denied camera permission"));
+        };
+      });
+      
+    } catch (error) {
+      console.error("Error requesting camera permission:", error);
+      setCameraError("Unable to request camera permission");
+      throw error;
+    }
+  };
+
   // Handle QR scanning with proper camera access
   const handleScan = async () => {
     if (isScanning) {
@@ -63,18 +210,31 @@ const StampPage = () => {
     setIsScanning(true);
     
     try {
-      // Request camera permission first
-      await navigator.mediaDevices.getUserMedia({ 
-        video: { 
-          facingMode: 'environment' // Use back camera on mobile
-        } 
-      });
+      // Check permission state and request if needed
+      if (permissionState === "denied") {
+        setCameraError("📷 Camera permission was previously denied. Please enable it in browser settings.");
+        setIsScanning(false);
+        return;
+      }
+      
+      if (permissionState === "prompt" || permissionState !== "granted") {
+        console.log("Requesting camera permission...");
+        await requestCameraPermission();
+      }
+      
+      // Double-check that we have permission after request
+      if (permissionState === "denied") {
+        setIsScanning(false);
+        return;
+      }
       
       // Check if QR scanner can detect cameras
       const hasCamera = await QrScanner.hasCamera();
       if (!hasCamera) {
         throw new Error("No camera found on this device");
       }
+
+      console.log("Starting camera for QR scanning...");
 
       // Create video element for camera preview
       const videoElem = document.createElement("video");
@@ -277,6 +437,7 @@ const StampPage = () => {
       let errorMessage = "Unable to access camera";
       if (error.name === 'NotAllowedError') {
         errorMessage = "📷 Camera permission denied. Please allow camera access in your browser settings and try again.";
+        setPermissionState("denied");
       } else if (error.name === 'NotFoundError') {
         errorMessage = "📵 No camera found on this device.";
       } else if (error.name === 'NotReadableError') {
@@ -285,6 +446,10 @@ const StampPage = () => {
         errorMessage = "📵 No camera available on this device.";
       } else if (error.name === 'SecurityError') {
         errorMessage = "🔒 Camera access blocked. Please enable camera permissions for this website.";
+        setPermissionState("denied");
+      } else if (error.message?.includes('denied')) {
+        errorMessage = "📷 Camera permission is required to scan QR codes. Please allow camera access.";
+        setPermissionState("denied");
       }
       
       setCameraError(errorMessage);
@@ -374,9 +539,13 @@ const StampPage = () => {
           >
             {!id 
               ? "🚫 Need User ID to Scan" 
+              : permissionState === "denied"
+                ? "📷 Camera Blocked - Check Settings"
               : isScanning 
                 ? "📷 Stop Scanner" 
-                : "📱 Scan QR Code"
+                : permissionState === "granted"
+                  ? "📱 Scan QR Code"
+                  : "📱 Enable Camera & Scan"
             }
           </button>
           
