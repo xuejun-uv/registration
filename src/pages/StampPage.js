@@ -51,7 +51,7 @@ const StampPage = () => {
     }
   }, [id, booth]);
 
-  // Handle QR scanning with improved camera access
+  // Handle QR scanning with proper camera access
   const handleScan = async () => {
     if (isScanning) {
       // Stop scanning if already scanning
@@ -63,7 +63,14 @@ const StampPage = () => {
     setIsScanning(true);
     
     try {
-      // Check if camera is available
+      // Request camera permission first
+      await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          facingMode: 'environment' // Use back camera on mobile
+        } 
+      });
+      
+      // Check if QR scanner can detect cameras
       const hasCamera = await QrScanner.hasCamera();
       if (!hasCamera) {
         throw new Error("No camera found on this device");
@@ -71,6 +78,8 @@ const StampPage = () => {
 
       // Create video element for camera preview
       const videoElem = document.createElement("video");
+      videoElem.setAttribute('playsinline', true); // Important for iOS
+      videoElem.setAttribute('muted', true);
       videoElem.style.cssText = `
         position: fixed;
         top: 0;
@@ -103,15 +112,57 @@ const StampPage = () => {
       // Instructions at the top
       const instructions = document.createElement("div");
       instructions.style.cssText = `
-        background: rgba(0, 0, 0, 0.7);
+        background: rgba(0, 0, 0, 0.8);
         color: white;
         padding: 15px 20px;
         border-radius: 12px;
         font-size: 16px;
         text-align: center;
         margin-top: 60px;
+        font-weight: bold;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
       `;
-      instructions.innerHTML = "📱 Point camera at QR code to scan";
+      instructions.innerHTML = "📱 Point your camera at the booth QR code";
+      
+      // Scanning frame indicator
+      const scanFrame = document.createElement("div");
+      scanFrame.style.cssText = `
+        width: 250px;
+        height: 250px;
+        border: 3px solid #00ff00;
+        border-radius: 12px;
+        position: relative;
+        background: transparent;
+        box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+        animation: scanPulse 2s infinite;
+      `;
+      
+      // Add scan frame animation
+      const style = document.createElement('style');
+      style.textContent = `
+        @keyframes scanPulse {
+          0%, 100% { border-color: #00ff00; }
+          50% { border-color: #00ffff; }
+        }
+        @keyframes scanLine {
+          0% { top: 0; }
+          100% { top: calc(100% - 2px); }
+        }
+      `;
+      document.head.appendChild(style);
+      
+      // Add scanning line
+      const scanLine = document.createElement("div");
+      scanLine.style.cssText = `
+        position: absolute;
+        width: 100%;
+        height: 2px;
+        background: linear-gradient(90deg, transparent, #00ff00, transparent);
+        top: 0;
+        left: 0;
+        animation: scanLine 2s linear infinite;
+      `;
+      scanFrame.appendChild(scanLine);
       
       // Close button at the bottom
       const closeButton = document.createElement("button");
@@ -127,48 +178,84 @@ const StampPage = () => {
         pointer-events: auto;
         box-shadow: 0 4px 12px rgba(255, 71, 87, 0.3);
         margin-bottom: 40px;
+        transition: all 0.2s;
       `;
-      closeButton.innerHTML = "❌ Close Scanner";
+      closeButton.innerHTML = "❌ Close Camera";
+      closeButton.onmousedown = () => closeButton.style.transform = "scale(0.95)";
+      closeButton.onmouseup = () => closeButton.style.transform = "scale(1)";
       closeButton.onclick = () => stopScanning();
       
       overlay.appendChild(instructions);
+      overlay.appendChild(scanFrame);
       overlay.appendChild(closeButton);
       
-      // Initialize QR scanner
+      // Initialize QR scanner with the video element
       const scanner = new QrScanner(
         videoElem, 
         (result) => {
           const qrCode = result.data;
           console.log("QR Code scanned:", qrCode);
           
+          // Provide immediate feedback
+          instructions.innerHTML = "✅ QR Code detected! Processing...";
+          instructions.style.background = "rgba(34, 197, 94, 0.9)";
+          scanFrame.style.borderColor = "#00ff00";
+          
           // Parse the URL to get booth information
           try {
             const url = new URL(qrCode);
             const boothParam = url.searchParams.get('booth');
             if (boothParam && id) {
-              // Success feedback
-              instructions.innerHTML = "✅ QR Code detected! Redirecting...";
-              instructions.style.background = "rgba(34, 197, 94, 0.9)";
+              instructions.innerHTML = `✅ Booth ${boothParam} detected! Marking stamp...`;
               
-              // Redirect after brief delay
+              // Stop scanner and redirect after brief delay
               setTimeout(() => {
+                stopScanning();
                 window.location.href = `${window.location.origin}/stamps?id=${id}&booth=${boothParam}`;
-              }, 1000);
+              }, 1500);
             } else {
-              instructions.innerHTML = "⚠️ Invalid QR code. Please scan a booth QR code.";
+              instructions.innerHTML = "⚠️ This is not a valid booth QR code";
               instructions.style.background = "rgba(239, 68, 68, 0.9)";
+              scanFrame.style.borderColor = "#ff0000";
+              
+              // Reset after 2 seconds
+              setTimeout(() => {
+                instructions.innerHTML = "📱 Point your camera at the booth QR code";
+                instructions.style.background = "rgba(0, 0, 0, 0.8)";
+                scanFrame.style.borderColor = "#00ff00";
+              }, 2000);
             }
           } catch (e) {
             console.error("Invalid QR code URL:", e);
-            instructions.innerHTML = "⚠️ Invalid QR code format. Please try again.";
+            instructions.innerHTML = "⚠️ Invalid QR code format. Please scan a booth QR code.";
             instructions.style.background = "rgba(239, 68, 68, 0.9)";
+            scanFrame.style.borderColor = "#ff0000";
+            
+            // Reset after 2 seconds
+            setTimeout(() => {
+              instructions.innerHTML = "📱 Point your camera at the booth QR code";
+              instructions.style.background = "rgba(0, 0, 0, 0.8)";
+              scanFrame.style.borderColor = "#00ff00";
+            }, 2000);
           }
         },
         {
-          highlightScanRegion: true,
+          highlightScanRegion: false, // We're using our own scan frame
           highlightCodeOutline: true,
           preferredCamera: 'environment', // Use back camera on mobile
-          maxScansPerSecond: 5
+          maxScansPerSecond: 5,
+          calculateScanRegion: () => {
+            // Define scan region to match our visual frame
+            const frameSize = 250;
+            const centerX = window.innerWidth / 2;
+            const centerY = window.innerHeight / 2;
+            return {
+              x: centerX - frameSize / 2,
+              y: centerY - frameSize / 2,
+              width: frameSize,
+              height: frameSize
+            };
+          }
         }
       );
       
@@ -179,21 +266,25 @@ const StampPage = () => {
       document.body.appendChild(videoElem);
       document.body.appendChild(overlay);
       
-      // Start scanner
+      // Start the camera and scanner
       await scanner.start();
       
+      console.log("Camera started successfully for QR scanning");
+      
     } catch (error) {
-      console.error("Error starting QR scanner:", error);
+      console.error("Error starting camera for QR scanner:", error);
       
       let errorMessage = "Unable to access camera";
       if (error.name === 'NotAllowedError') {
-        errorMessage = "Camera permission denied. Please allow camera access and try again.";
+        errorMessage = "📷 Camera permission denied. Please allow camera access in your browser settings and try again.";
       } else if (error.name === 'NotFoundError') {
-        errorMessage = "No camera found on this device.";
+        errorMessage = "📵 No camera found on this device.";
       } else if (error.name === 'NotReadableError') {
-        errorMessage = "Camera is being used by another application.";
-      } else if (error.message.includes('No camera')) {
-        errorMessage = "No camera available on this device.";
+        errorMessage = "📷 Camera is being used by another application. Please close other apps and try again.";
+      } else if (error.message?.includes('No camera')) {
+        errorMessage = "📵 No camera available on this device.";
+      } else if (error.name === 'SecurityError') {
+        errorMessage = "🔒 Camera access blocked. Please enable camera permissions for this website.";
       }
       
       setCameraError(errorMessage);
@@ -209,15 +300,25 @@ const StampPage = () => {
       setQrScanner(null);
     }
     
-    // Remove video and overlay elements
-    const videoElements = document.querySelectorAll('video');
-    const overlayElements = document.querySelectorAll('div[style*="z-index: 1001"]');
-    
+    // Remove video elements
+    const videoElements = document.querySelectorAll('video[style*="position: fixed"]');
     videoElements.forEach(el => el.remove());
+    
+    // Remove overlay elements
+    const overlayElements = document.querySelectorAll('div[style*="z-index: 1001"]');
     overlayElements.forEach(el => el.remove());
+    
+    // Remove any injected styles
+    const injectedStyles = document.querySelectorAll('style');
+    injectedStyles.forEach(el => {
+      if (el.textContent.includes('@keyframes scanPulse')) {
+        el.remove();
+      }
+    });
     
     setIsScanning(false);
     setCameraError("");
+    console.log("Camera scanner stopped and cleaned up");
   };
   
   // Cleanup on component unmount
