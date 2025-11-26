@@ -5,13 +5,25 @@ function initAdmin() {
   if (!admin.apps.length) {
     try {
       console.log('Initializing Firebase Admin...');
-      const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT;
       
-      if (!serviceAccountJson) {
+      // Check if environment variable exists
+      if (!process.env.FIREBASE_SERVICE_ACCOUNT) {
+        console.error('FIREBASE_SERVICE_ACCOUNT environment variable is missing');
         throw new Error('FIREBASE_SERVICE_ACCOUNT environment variable is missing');
       }
       
-      const serviceAccount = JSON.parse(serviceAccountJson);
+      let serviceAccount;
+      try {
+        serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+      } catch (parseError) {
+        console.error('Failed to parse FIREBASE_SERVICE_ACCOUNT JSON:', parseError);
+        throw new Error('Invalid FIREBASE_SERVICE_ACCOUNT JSON format');
+      }
+      
+      if (!serviceAccount.project_id) {
+        throw new Error('Invalid service account: missing project_id');
+      }
+      
       console.log('Service account loaded for project:', serviceAccount.project_id);
       
       admin.initializeApp({ 
