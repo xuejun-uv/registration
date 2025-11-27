@@ -95,7 +95,7 @@ const HomePage = () => {
                 color: 'white',
                 letterSpacing: '-1px',
                 textShadow: '0 2px 4px rgba(0,0,0,0.1)'
-              }}>avabot</h1>
+              }}>Registration</h1>
             </div>
           </div>
 
