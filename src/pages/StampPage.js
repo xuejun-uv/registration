@@ -135,7 +135,7 @@ const StampPage = () => {
       // Set the video element source to the camera stream (standard WebRTC approach)
       video.srcObject = stream;
       
-      // Create overlay with scanning frame and instructions
+      // Simple overlay just for positioning - tap to close
       const overlay = document.createElement("div");
       overlay.style.cssText = `
         position: absolute;
@@ -143,31 +143,20 @@ const StampPage = () => {
         left: 0;
         width: 100%;
         height: 100%;
-        pointer-events: none;
+        pointer-events: all;
         display: flex;
         flex-direction: column;
         align-items: center;
-        justify-content: space-between;
+        justify-content: center;
         padding: 20px;
         box-sizing: border-box;
+        cursor: pointer;
       `;
       
-      // Instructions
-      const instructions = document.createElement("div");
-      instructions.style.cssText = `
-        background: rgba(0, 0, 0, 0.8);
-        color: white;
-        padding: 12px 20px;
-        border-radius: 25px;
-        font-size: 16px;
-        font-weight: 600;
-        text-align: center;
-        margin-top: 40px;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
-      `;
-      instructions.innerHTML = "📱 Point camera at QR code";
+      // Add tap to close functionality
+      overlay.onclick = () => stopScanning();
       
-      // Scanning frame
+      // Simple scanning frame without animation or instructions
       const scanFrame = document.createElement("div");
       scanFrame.style.cssText = `
         width: 280px;
@@ -177,116 +166,18 @@ const StampPage = () => {
         position: relative;
         background: transparent;
         box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.6);
+        pointer-events: none;
       `;
       
-      // Scan line animation
-      const scanLine = document.createElement("div");
-      scanLine.style.cssText = `
-        position: absolute;
-        width: 100%;
-        height: 3px;
-        background: linear-gradient(90deg, transparent, #00ff00, transparent);
-        top: 0;
-        left: 0;
-        animation: scanMove 2s linear infinite;
-      `;
-      
-      // Add CSS animation
-      const style = document.createElement('style');
-      style.textContent = `
-        @keyframes scanMove {
-          0% { top: 0; }
-          50% { top: calc(100% - 3px); }
-          100% { top: 0; }
-        }
-      `;
-      document.head.appendChild(style);
-      
-      scanFrame.appendChild(scanLine);
-      
-      // Control buttons
-      const controlPanel = document.createElement("div");
-      controlPanel.style.cssText = `
-        display: flex;
-        gap: 20px;
-        margin-bottom: 40px;
-        pointer-events: all;
-      `;
-      
-      // Manual input button
-      const manualButton = document.createElement("button");
-      manualButton.style.cssText = `
-        background: rgba(255, 255, 255, 0.2);
-        border: 2px solid white;
-        color: white;
-        padding: 12px 20px;
-        border-radius: 25px;
-        font-size: 16px;
-        font-weight: 600;
-        cursor: pointer;
-        backdrop-filter: blur(10px);
-        transition: all 0.3s ease;
-      `;
-      manualButton.innerHTML = "✏️ Enter Manually";
-      manualButton.onclick = () => {
-        stopScanning();
-        showManualInput("Enter the booth name from the QR code:");
-      };
-      
-      // Close button
-      const closeButton = document.createElement("button");
-      closeButton.style.cssText = `
-        background: rgba(255, 68, 68, 0.9);
-        border: 2px solid #ff4444;
-        color: white;
-        padding: 12px 20px;
-        border-radius: 25px;
-        font-size: 16px;
-        font-weight: 600;
-        cursor: pointer;
-        backdrop-filter: blur(10px);
-        transition: all 0.3s ease;
-      `;
-      closeButton.innerHTML = "❌ Close";
-      closeButton.onclick = () => stopScanning();
-      
-      controlPanel.appendChild(manualButton);
-      controlPanel.appendChild(closeButton);
-      
-      // Assemble the interface
-      overlay.appendChild(instructions);
+      // Assemble the clean interface (no buttons or animations)
       overlay.appendChild(scanFrame);
-      overlay.appendChild(controlPanel);
       
       cameraContainer.appendChild(video);
       cameraContainer.appendChild(overlay);
       document.body.appendChild(cameraContainer);
       
       // Video will start automatically due to autoplay attribute
-      // The stream is already assigned to video.srcObject above
-      
-      // QR Code scanning using canvas
-      const canvas = document.createElement('canvas');
-      const context = canvas.getContext('2d');
-      
-      const scanForQR = () => {
-        if (!isScanning) return;
-        
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        context.drawImage(video, 0, 0);
-        
-        // const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-        
-        // Simple QR detection would go here - for now we rely on manual input
-        // as implementing QR detection requires additional libraries
-        
-        setTimeout(scanForQR, 100); // Scan every 100ms
-      };
-      
-      video.onloadedmetadata = () => {
-        scanForQR();
-      };
+      // Users can tap anywhere on the overlay to close the camera
       
     } catch (error) {
       console.error("Error accessing camera:", error);
@@ -302,7 +193,7 @@ const StampPage = () => {
       }
       
       setCameraError(errorMessage);
-      showManualInput("Camera unavailable. Please enter the booth name manually:");
+      // No manual input fallback to prevent cheating
     }
   };
 
@@ -330,126 +221,6 @@ const StampPage = () => {
     });
     
     console.log("Camera scanning stopped");
-  };
-
-  // Show manual input dialog
-  const showManualInput = (message) => {
-    const instructionDialog = document.createElement("div");
-    instructionDialog.style.cssText = `
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.9);
-      z-index: 2000;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-      box-sizing: border-box;
-    `;
-    
-    const dialogContent = document.createElement("div");
-    dialogContent.style.cssText = `
-      background: white;
-      padding: 30px;
-      border-radius: 20px;
-      text-align: center;
-      max-width: 400px;
-      width: 100%;
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-    `;
-    
-    dialogContent.innerHTML = `
-      <div style="font-size: 64px; margin-bottom: 20px;">📱</div>
-      <h2 style="margin: 0 0 16px 0; color: #333; font-size: 22px;">Camera Instructions</h2>
-      <p style="color: #666; margin: 0 0 24px 0; line-height: 1.5; font-size: 16px;">
-        ${message}
-      </p>
-      <div style="background: #f3f4f6; padding: 16px; border-radius: 12px; margin-bottom: 24px; text-align: left;">
-        <p style="margin: 0 0 8px 0; color: #374151; font-size: 14px; font-weight: bold;">Quick Guide:</p>
-        <p style="margin: 0 0 4px 0; color: #374151; font-size: 14px;">📱 <strong>iPhone:</strong> Open Camera app</p>
-        <p style="margin: 0 0 4px 0; color: #374151; font-size: 14px;">🤖 <strong>Android:</strong> Open Camera or Google Lens</p>
-        <p style="margin: 0; color: #374151; font-size: 14px;">💻 <strong>Desktop:</strong> Use your phone</p>
-      </div>
-      <div style="margin-bottom: 20px;">
-        <input 
-          type="text" 
-          placeholder="Enter booth name (e.g., Booth-A)"
-          id="manualBoothInput"
-          style="
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #e5e7eb;
-            border-radius: 8px;
-            font-size: 16px;
-            box-sizing: border-box;
-          "
-        />
-      </div>
-      <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
-        <button id="submitBoothName" style="
-          background: #22c55e;
-          color: white;
-          border: none;
-          padding: 12px 24px;
-          border-radius: 12px;
-          font-weight: bold;
-          cursor: pointer;
-          font-size: 16px;
-          flex: 1;
-          min-width: 120px;
-        ">✅ Submit Booth</button>
-        <button id="closeDialog" style="
-          background: #6b7280;
-          color: white;
-          border: none;
-          padding: 12px 24px;
-          border-radius: 12px;
-          font-weight: bold;
-          cursor: pointer;
-          font-size: 16px;
-          flex: 1;
-          min-width: 120px;
-        ">❌ Cancel</button>
-      </div>
-    `;
-    
-    instructionDialog.appendChild(dialogContent);
-    document.body.appendChild(instructionDialog);
-    
-    // Handle manual booth submission
-    const submitButton = document.getElementById("submitBoothName");
-    const closeButton = document.getElementById("closeDialog");
-    const boothInput = document.getElementById("manualBoothInput");
-    
-    const cleanup = () => {
-      instructionDialog.remove();
-      setIsScanning(false);
-    };
-    
-    submitButton.onclick = async () => {
-      const boothName = boothInput.value.trim();
-      if (boothName) {
-        cleanup();
-        await handleQRCodeDetected(boothName);
-      } else {
-        alert("Please enter a booth name");
-      }
-    };
-    
-    closeButton.onclick = cleanup;
-    
-    // Auto-focus the input and handle enter key
-    setTimeout(() => {
-      boothInput.focus();
-      boothInput.onkeypress = (e) => {
-        if (e.key === 'Enter') {
-          submitButton.click();
-        }
-      };
-    }, 100);
   };
 
   // Cleanup on component unmount
