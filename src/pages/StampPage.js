@@ -82,10 +82,10 @@ const StampPage = () => {
     setIsScanning(false);
   };
 
-  // Handle native camera app opening
+  // Handle web camera scanning within Chrome/Google browser
   const handleScan = async () => {
     if (isScanning) {
-      setIsScanning(false);
+      stopScanning();
       return;
     }
     
@@ -93,79 +93,241 @@ const StampPage = () => {
     setIsScanning(true);
     
     try {
-      console.log("Opening native camera app...");
+      console.log("Opening camera in browser...");
       
-      // Detect device type and attempt to open native camera
-      const userAgent = navigator.userAgent;
-      const isIOS = /iPad|iPhone|iPod/.test(userAgent);
-      const isAndroid = /Android/.test(userAgent);
+      // Request camera permission and access
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          facingMode: 'environment', // Use rear camera for QR scanning
+          width: { ideal: 1280, max: 1920 },
+          height: { ideal: 720, max: 1080 }
+        } 
+      });
       
-      let cameraOpened = false;
+      // Create fullscreen camera interface
+      const cameraContainer = document.createElement("div");
+      cameraContainer.id = "camera-scanner";
+      cameraContainer.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: black;
+        z-index: 2000;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      `;
       
-      if (isIOS) {
-        // Try iOS camera app with file input
-        try {
-          const input = document.createElement('input');
-          input.type = 'file';
-          input.accept = 'image/*';
-          input.capture = 'environment'; // Use rear camera
-          input.style.display = 'none';
-          
-          input.onchange = (event) => {
-            const file = event.target.files[0];
-            if (file) {
-              // Show manual input after photo capture
-              showManualInput("Photo captured! Please enter the booth name you see in the QR code:");
-            }
-            setIsScanning(false);
-          };
-          
-          input.oncancel = () => {
-            setIsScanning(false);
-          };
-          
-          document.body.appendChild(input);
-          input.click();
-          
-          // Clean up after a delay
-          setTimeout(() => {
-            if (document.body.contains(input)) {
-              document.body.removeChild(input);
-            }
-          }, 100);
-          
-          cameraOpened = true;
-          
-        } catch (error) {
-          console.log("iOS camera capture failed:", error);
+      // Create video element for camera preview
+      const video = document.createElement("video");
+      video.setAttribute('playsinline', true);
+      video.setAttribute('muted', true);
+      video.style.cssText = `
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transform: scaleX(-1);
+      `;
+      
+      // Create overlay with scanning frame and instructions
+      const overlay = document.createElement("div");
+      overlay.style.cssText = `
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: space-between;
+        padding: 20px;
+        box-sizing: border-box;
+      `;
+      
+      // Instructions
+      const instructions = document.createElement("div");
+      instructions.style.cssText = `
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 12px 20px;
+        border-radius: 25px;
+        font-size: 16px;
+        font-weight: 600;
+        text-align: center;
+        margin-top: 40px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+      `;
+      instructions.innerHTML = "📱 Point camera at QR code";
+      
+      // Scanning frame
+      const scanFrame = document.createElement("div");
+      scanFrame.style.cssText = `
+        width: 280px;
+        height: 280px;
+        border: 3px solid #00ff00;
+        border-radius: 20px;
+        position: relative;
+        background: transparent;
+        box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.6);
+      `;
+      
+      // Scan line animation
+      const scanLine = document.createElement("div");
+      scanLine.style.cssText = `
+        position: absolute;
+        width: 100%;
+        height: 3px;
+        background: linear-gradient(90deg, transparent, #00ff00, transparent);
+        top: 0;
+        left: 0;
+        animation: scanMove 2s linear infinite;
+      `;
+      
+      // Add CSS animation
+      const style = document.createElement('style');
+      style.textContent = `
+        @keyframes scanMove {
+          0% { top: 0; }
+          50% { top: calc(100% - 3px); }
+          100% { top: 0; }
         }
-      } else if (isAndroid) {
-        // Try Android camera app using intent
-        try {
-          // Try to open camera intent for QR scanning
-          window.location.href = "intent://scan/#Intent;scheme=zxing;package=com.google.zxing.client.android;end";
-          cameraOpened = true;
-          
-          // Show fallback after a delay if intent didn't work
-          setTimeout(() => {
-            showManualInput("If the camera didn't open, please manually enter the booth name:");
-          }, 2000);
-          
-        } catch (error) {
-          console.log("Android camera intent failed:", error);
-        }
-      }
+      `;
+      document.head.appendChild(style);
       
-      // If we're on desktop or mobile camera couldn't be opened, show instructions
-      if (!cameraOpened || (!isIOS && !isAndroid)) {
-        showManualInput("Please open your camera app and scan the QR code, then enter the booth name:");
-      }
+      scanFrame.appendChild(scanLine);
+      
+      // Control buttons
+      const controlPanel = document.createElement("div");
+      controlPanel.style.cssText = `
+        display: flex;
+        gap: 20px;
+        margin-bottom: 40px;
+        pointer-events: all;
+      `;
+      
+      // Manual input button
+      const manualButton = document.createElement("button");
+      manualButton.style.cssText = `
+        background: rgba(255, 255, 255, 0.2);
+        border: 2px solid white;
+        color: white;
+        padding: 12px 20px;
+        border-radius: 25px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        backdrop-filter: blur(10px);
+        transition: all 0.3s ease;
+      `;
+      manualButton.innerHTML = "✏️ Enter Manually";
+      manualButton.onclick = () => {
+        stopScanning();
+        showManualInput("Enter the booth name from the QR code:");
+      };
+      
+      // Close button
+      const closeButton = document.createElement("button");
+      closeButton.style.cssText = `
+        background: rgba(255, 68, 68, 0.9);
+        border: 2px solid #ff4444;
+        color: white;
+        padding: 12px 20px;
+        border-radius: 25px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        backdrop-filter: blur(10px);
+        transition: all 0.3s ease;
+      `;
+      closeButton.innerHTML = "❌ Close";
+      closeButton.onclick = () => stopScanning();
+      
+      controlPanel.appendChild(manualButton);
+      controlPanel.appendChild(closeButton);
+      
+      // Assemble the interface
+      overlay.appendChild(instructions);
+      overlay.appendChild(scanFrame);
+      overlay.appendChild(controlPanel);
+      
+      cameraContainer.appendChild(video);
+      cameraContainer.appendChild(overlay);
+      document.body.appendChild(cameraContainer);
+      
+      // Start video stream
+      video.srcObject = stream;
+      video.play();
+      
+      // QR Code scanning using canvas
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      
+      const scanForQR = () => {
+        if (!isScanning) return;
+        
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        context.drawImage(video, 0, 0);
+        
+        // const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+        
+        // Simple QR detection would go here - for now we rely on manual input
+        // as implementing QR detection requires additional libraries
+        
+        setTimeout(scanForQR, 100); // Scan every 100ms
+      };
+      
+      video.onloadedmetadata = () => {
+        scanForQR();
+      };
       
     } catch (error) {
-      console.error("Error opening camera:", error);
-      setCameraError("Unable to open camera. Please enter booth name manually.");
-      showManualInput("Camera unavailable. Please enter the booth name:");
+      console.error("Error accessing camera:", error);
+      setIsScanning(false);
+      
+      let errorMessage = "Camera access failed";
+      if (error.name === 'NotAllowedError') {
+        errorMessage = "📷 Camera permission denied. Please allow camera access in your browser.";
+      } else if (error.name === 'NotFoundError') {
+        errorMessage = "📵 No camera found on this device.";
+      } else if (error.name === 'NotReadableError') {
+        errorMessage = "📷 Camera is being used by another app.";
+      }
+      
+      setCameraError(errorMessage);
+      showManualInput("Camera unavailable. Please enter the booth name manually:");
     }
+  };
+
+  // Stop camera and cleanup
+  const stopScanning = () => {
+    setIsScanning(false);
+    
+    // Remove camera interface
+    const cameraContainer = document.getElementById("camera-scanner");
+    if (cameraContainer) {
+      // Stop all video tracks
+      const video = cameraContainer.querySelector('video');
+      if (video && video.srcObject) {
+        video.srcObject.getTracks().forEach(track => track.stop());
+      }
+      cameraContainer.remove();
+    }
+    
+    // Remove injected styles
+    const styles = document.querySelectorAll('style');
+    styles.forEach(style => {
+      if (style.textContent.includes('@keyframes scanMove')) {
+        style.remove();
+      }
+    });
+    
+    console.log("Camera scanning stopped");
   };
 
   // Show manual input dialog
@@ -288,6 +450,13 @@ const StampPage = () => {
     }, 100);
   };
 
+  // Cleanup on component unmount
+  React.useEffect(() => {
+    return () => {
+      stopScanning();
+    };
+  }, []);
+
   return (
     <div className="stamp-page">
       <div className="container">
@@ -335,8 +504,8 @@ const StampPage = () => {
             {!id 
               ? "🚫 Need User ID to Scan" 
               : isScanning 
-                ? "📷 Opening Camera..." 
-                : "📸 Open Camera to Scan"
+                ? "📷 Stop Camera" 
+                : "📸 Start Camera Scan"
             }
           </button>
           
