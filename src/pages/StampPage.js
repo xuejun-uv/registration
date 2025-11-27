@@ -95,7 +95,7 @@ const StampPage = () => {
     try {
       console.log("Opening camera in browser...");
       
-      // Request camera permission and access
+      // Use the standard WebRTC MediaDevices API to request camera access
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { 
           facingMode: 'environment', // Use rear camera for QR scanning
@@ -121,16 +121,19 @@ const StampPage = () => {
         justify-content: center;
       `;
       
-      // Create video element for camera preview
+      // Create video element for camera preview using standard approach
       const video = document.createElement("video");
       video.setAttribute('playsinline', true);
       video.setAttribute('muted', true);
+      video.setAttribute('autoplay', true); // Ensure autoplay as per WebRTC best practices
       video.style.cssText = `
         width: 100%;
         height: 100%;
         object-fit: cover;
-        transform: scaleX(-1);
       `;
+      
+      // Set the video element source to the camera stream (standard WebRTC approach)
+      video.srcObject = stream;
       
       // Create overlay with scanning frame and instructions
       const overlay = document.createElement("div");
@@ -259,9 +262,8 @@ const StampPage = () => {
       cameraContainer.appendChild(overlay);
       document.body.appendChild(cameraContainer);
       
-      // Start video stream
-      video.srcObject = stream;
-      video.play();
+      // Video will start automatically due to autoplay attribute
+      // The stream is already assigned to video.srcObject above
       
       // QR Code scanning using canvas
       const canvas = document.createElement('canvas');
