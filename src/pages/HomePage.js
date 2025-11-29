@@ -36,9 +36,9 @@ const HomePage = () => {
       const data = await res.json();
       if (data && data.success && data.id) {
         if (data.isReturningUser) {
-          setSuccessMessage(`Welcome back, ${nickname}! Redirecting to your stamps...`);
+          setSuccessMessage(`Welcome back, ${nickname}!`);
         } else {
-          setSuccessMessage(`Welcome, ${nickname}! Creating your stamp collection...`);
+          setSuccessMessage(``);
         }
         
         // Redirect after showing message
