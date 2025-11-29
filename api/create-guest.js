@@ -46,7 +46,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  console.log('=== Create Guest API Called ===');
+  console.log('=== Create/Get Guest API Called ===');
   console.log('Request body:', JSON.stringify(req.body, null, 2));
   console.log('Environment check:', {
     hasFirebaseAccount: !!process.env.FIREBASE_SERVICE_ACCOUNT,
@@ -78,9 +78,37 @@ export default async function handler(req, res) {
       return res.status(400).json({ success: false, message: 'Nickname must be 2-20 characters' });
     }
 
-    // Generate a unique user id
+    // Check if user with this nickname already exists
+    console.log('Checking for existing user with nickname:', name);
+    const existingUserQuery = await db.collection('users').where('nickname', '==', name).limit(1).get();
+    
+    if (!existingUserQuery.empty) {
+      // User exists - return their existing data
+      const existingUserDoc = existingUserQuery.docs[0];
+      const userId = existingUserDoc.id;
+      console.log('Found existing user with ID:', userId);
+      
+      // Update lastActive timestamp
+      await db.collection('users').doc(userId).update({
+        lastActive: admin.firestore.FieldValue.serverTimestamp()
+      });
+      
+      // Get their current stamps
+      const stampsDoc = await db.collection('stamps').doc(userId).get();
+      const stampsData = stampsDoc.exists ? stampsDoc.data() : null;
+      
+      console.log('✅ Returning existing user data');
+      return res.status(200).json({ 
+        success: true, 
+        id: userId, 
+        isReturningUser: true,
+        stamps: stampsData?.stamps || []
+      });
+    }
+
+    // New user - create account
     const userId = uuidv4();
-    console.log('Generated userId:', userId);
+    console.log('Generated userId for new user:', userId);
 
     // Create user document
     const userDoc = {
@@ -89,7 +117,7 @@ export default async function handler(req, res) {
       lastActive: admin.firestore.FieldValue.serverTimestamp()
     };
 
-    console.log('Creating user document...');
+    console.log('Creating new user document...');
     await db.collection('users').doc(userId).set(userDoc);
     console.log('User document created successfully');
 
@@ -107,8 +135,13 @@ export default async function handler(req, res) {
     });
     console.log('Stamps document created successfully');
 
-    console.log('✅ Guest creation completed successfully');
-    return res.status(200).json({ success: true, id: userId });
+    console.log('✅ New guest creation completed successfully');
+    return res.status(200).json({ 
+      success: true, 
+      id: userId, 
+      isReturningUser: false,
+      stamps: stampsArray
+    });
     
   } catch (err) {
     console.error('❌ Error creating guest:', err);

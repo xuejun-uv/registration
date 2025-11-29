@@ -7,6 +7,7 @@ const HomePage = () => {
   const [nickname, setNickname] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
 
   const validate = (name) => {
     if (!name || typeof name !== 'string') return 'Please enter a nickname.';
@@ -23,6 +24,7 @@ const HomePage = () => {
       return;
     }
     setError("");
+    setSuccessMessage("");
     setLoading(true);
 
     try {
@@ -33,7 +35,16 @@ const HomePage = () => {
       });
       const data = await res.json();
       if (data && data.success && data.id) {
-        navigate(`/stamps?id=${encodeURIComponent(data.id)}`);
+        if (data.isReturningUser) {
+          setSuccessMessage(`Welcome back, ${nickname}! Redirecting to your stamps...`);
+        } else {
+          setSuccessMessage(`Welcome, ${nickname}! Creating your stamp collection...`);
+        }
+        
+        // Redirect after showing message
+        setTimeout(() => {
+          navigate(`/stamps?id=${encodeURIComponent(data.id)}`);
+        }, 1500);
       } else {
         setError(data.message || 'Failed to create guest account');
       }
@@ -219,6 +230,26 @@ const HomePage = () => {
               }}>
                 <span>⚠️</span>
                 {error}
+              </div>
+            )}
+
+            {successMessage && (
+              <div style={{ 
+                color: '#38a169', 
+                marginTop: '16px',
+                fontSize: '14px',
+                textAlign: 'left',
+                padding: '12px 16px',
+                backgroundColor: 'rgba(56, 161, 105, 0.1)',
+                borderRadius: '12px',
+                border: '1px solid rgba(56, 161, 105, 0.2)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                fontWeight: '500'
+              }}>
+                <span>✅</span>
+                {successMessage}
               </div>
             )}
 
