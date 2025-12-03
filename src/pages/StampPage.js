@@ -8,6 +8,8 @@ const StampPage = () => {
   const [stamps, setStamps] = useState([]);
   const [isScanning, setIsScanning] = useState(false);
   const [cameraError, setCameraError] = useState("");
+  const [userError, setUserError] = useState("");
+  const [userInfo, setUserInfo] = useState(null);
 
   const id = searchParams.get("id");
   const booth = searchParams.get("booth");
@@ -24,14 +26,23 @@ const StampPage = () => {
   // Fetch user stamp data when an ID is provided
   useEffect(() => {
     if (id) {
+      setUserError("");
       fetch(`/api/get-stamp?id=${id}`)
         .then((res) => res.json())
         .then((data) => {
           if (data.success && data.stamps) {
             setStamps(data.stamps);
+            if (data.user) {
+              setUserInfo(data.user);
+            }
+          } else {
+            setUserError(data.error || "Failed to load user data");
           }
         })
-        .catch((err) => console.error("Error fetching stamps:", err));
+        .catch((err) => {
+          console.error("Error fetching stamps:", err);
+          setUserError("Unable to connect to server");
+        });
     }
   }, [id]);
 
@@ -43,9 +54,18 @@ const StampPage = () => {
         .then((data) => {
           if (data.success && data.stamps) {
             setStamps(data.stamps);
+            if (data.message) {
+              console.log(data.message);
+            }
+          } else {
+            console.error("Stamp marking failed:", data.error);
+            setCameraError(data.error || "Failed to mark stamp");
           }
         })
-        .catch((err) => console.error("Error marking stamp:", err));
+        .catch((err) => {
+          console.error("Error marking stamp:", err);
+          setCameraError("Unable to mark stamp - connection error");
+        });
     }
   }, [id, booth]);
 
@@ -297,6 +317,22 @@ const StampPage = () => {
               ⚠️ {cameraError}
             </div>
           )}
+
+          {userError && (
+            <div style={{
+              marginTop: "12px",
+              padding: "12px 16px",
+              background: "rgba(239, 68, 68, 0.1)",
+              border: "1px solid rgba(239, 68, 68, 0.2)",
+              borderRadius: "12px",
+              color: "#dc2626",
+              fontSize: "14px",
+              textAlign: "center",
+              fontWeight: "500"
+            }}>
+              🚫 {userError}
+            </div>
+          )}
           
           {!id && (
             <div style={{
@@ -315,7 +351,13 @@ const StampPage = () => {
           )}
         </div>
 
-        {id && (
+        {id && userInfo && (
+          <p className="user-info">
+            Welcome, {userInfo.nickname}! (ID: {id})
+          </p>
+        )}
+
+        {id && !userInfo && !userError && (
           <p className="user-info">
             User ID: {id}
           </p>
