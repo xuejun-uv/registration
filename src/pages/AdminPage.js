@@ -273,10 +273,8 @@ const AdminPage = () => {
               <br/>
               <span style={{ fontSize: '12px', opacity: 0.8 }}>Data: {selectedBoothData.id}</span>
             </div>
-            }}>
               <span>💡</span> Scan this QR code with the registration app to mark stamps for {selectedBoothData.name}
             </div>
-          </div>
         )}
 
         {/* Instructions when no booth selected */}
