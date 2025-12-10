@@ -124,7 +124,7 @@ const StampPage = () => {
       // Create fullscreen camera interface
       const cameraContainer = document.createElement("div");
       cameraContainer.id = "camera-scanner";
-      cameraContainer.style.cssText = \`
+      cameraContainer.style.cssText = `
         position: fixed;
         top: 0;
         left: 0;
@@ -136,21 +136,21 @@ const StampPage = () => {
         flex-direction: column;
         align-items: center;
         justify-content: center;
-      \`;
+      `;
       
       // Create video element for camera preview
       const video = document.createElement("video");
       video.setAttribute('playsinline', true);
       video.setAttribute('muted', true);
-      video.style.cssText = \`
+      video.style.cssText = `
         width: 100%;
         height: 100%;
         object-fit: cover;
-      \`;
+      `;
       
       // Simple overlay just for positioning - tap to close
       const overlay = document.createElement("div");
-      overlay.style.cssText = \`
+      overlay.style.cssText = `
         position: absolute;
         top: 0;
         left: 0;
@@ -164,14 +164,14 @@ const StampPage = () => {
         padding: 20px;
         box-sizing: border-box;
         cursor: pointer;
-      \`;
+      `;
       
       // Add tap to close functionality
       overlay.onclick = () => stopScanning();
       
       // Simple scanning frame
       const scanFrame = document.createElement("div");
-      scanFrame.style.cssText = \`
+      scanFrame.style.cssText = `
         width: 280px;
         height: 280px;
         border: 3px solid #00ff00;
@@ -180,7 +180,7 @@ const StampPage = () => {
         background: transparent;
         box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.6);
         pointer-events: none;
-      \`;
+      `;
       
       // Assemble the interface
       overlay.appendChild(scanFrame);
