@@ -97,12 +97,13 @@ const StampPage = () => {
           setStamps(result.stamps);
           alert(`✅ Stamp collected from ${boothName}!`);
         } else {
-          alert(`❌ ${result.message || 'Failed to collect stamp'}`);
+          // Show the actual error from the server, or fallback message
+          alert(`❌ ${result.error || result.message || 'Failed to collect stamp'}`);
         }
       }
     } catch (error) {
       console.error("Error processing QR code:", error);
-      alert("❌ Error processing QR code. Please try again.");
+      alert(`❌ Error processing QR code: ${error.message}`);
     }
     
     setIsScanning(false);
