@@ -17,16 +17,16 @@ const StampGrid = ({ count, stamps = [], startIndex = 1 }) => {
     <div className="stamp-grid">
       {stampBoxes.map((stampBox) => {
         // Use image from config, or fallback to generated path
-        const imagePath = stampBox.config ? stampBox.config.image : \`/booth\${stampBox.index}.jpg\`;
+        const imagePath = stampBox.config ? stampBox.config.image : `/booth${stampBox.index}.jpg`;
         
         return (
           <div
             key={stampBox.index}
-            className={\`stamp-box \${stampBox.filled ? 'filled' : ''}\`}
+            className={`stamp-box ${stampBox.filled ? 'filled' : ''}`}
           >
             <img 
               src={imagePath}
-              alt={\`Stamp \${stampBox.index}\`}
+              alt={`Stamp ${stampBox.index}`}
               style={{
                 width: '100%',
                 height: '100%',
@@ -37,7 +37,7 @@ const StampGrid = ({ count, stamps = [], startIndex = 1 }) => {
               onError={(e) => {
                 // Fallback to old naming convention if new image fails
                 const ext = stampBox.index === 9 ? 'jpg' : 'png';
-                e.target.src = \`/s\${stampBox.index}.\${ext}\`;
+                e.target.src = `/s${stampBox.index}.${ext}`;
               }}
             />
             {stampBox.filled && (
