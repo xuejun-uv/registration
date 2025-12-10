@@ -79,12 +79,49 @@ const StampPage = () => {
   const handleQRCodeDetected = async (data) => {
     console.log("QR Code detected:", data);
     
+    // Stop scanning immediately to prevent multiple triggers
+    stopScanning();
+
+    // Haptic feedback if available
+    if (navigator.vibrate) {
+      navigator.vibrate(200);
+    }
+    
     try {
-      // Extract booth name from QR data
-      let boothName = data;
-      if (data.includes('booth=')) {
-        const urlParams = new URLSearchParams(data.split('?')[1]);
-        boothName = urlParams.get('booth');
+      // Robust extraction of booth ID
+      // 1. Try to find "boothX" or "booth X" anywhere in the string (case insensitive)
+      const boothRegex = /booth\s*(\d+)/i;
+      const match = data.match(boothRegex);
+      
+      let boothName = null;
+      
+      if (match) {
+        const boothNumber = parseInt(match[1]);
+        // Validate it's between 1 and 11
+        if (boothNumber >= 1 && boothNumber <= 11) {
+            boothName = `booth${boothNumber}`;
+        }
+      }
+
+      // 2. Fallback: Check for URL parameter "booth=..."
+      if (!boothName && data.includes('booth=')) {
+        try {
+            // Handle full URL or just query string
+            const queryString = data.includes('?') ? data.split('?')[1] : data;
+            const urlParams = new URLSearchParams(queryString);
+            const param = urlParams.get('booth');
+            if (param) {
+                const paramMatch = param.match(/(\d+)/);
+                if (paramMatch) {
+                    const num = parseInt(paramMatch[1]);
+                    if (num >= 1 && num <= 11) {
+                        boothName = `booth${num}`;
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn("Failed to parse URL params:", e);
+        }
       }
       
       if (boothName && id) {
@@ -95,18 +132,17 @@ const StampPage = () => {
         
         if (result.success) {
           setStamps(result.stamps);
-          alert(`✅ Stamp collected from ${boothName}!`);
+          alert(`✅ Success! Stamp collected for ${boothName.replace('booth', 'Booth ')}`);
         } else {
-          // Show the actual error from the server, or fallback message
           alert(`❌ ${result.error || result.message || 'Failed to collect stamp'}`);
         }
+      } else {
+        alert(`⚠️ Invalid QR Code. Could not find a valid booth ID (Booth 1-11) in the scanned code.`);
       }
     } catch (error) {
       console.error("Error processing QR code:", error);
       alert(`❌ Error processing QR code: ${error.message}`);
     }
-    
-    setIsScanning(false);
   };
 
   // Handle web camera scanning within Chrome/Google browser
@@ -131,8 +167,8 @@ const StampPage = () => {
         left: 0;
         width: 100%;
         height: 100%;
-        background: black;
-        z-index: 2000;
+        background: #000;
+        z-index: 9999;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -147,9 +183,10 @@ const StampPage = () => {
         width: 100%;
         height: 100%;
         object-fit: cover;
+        opacity: 0.6; /* Dim the video slightly */
       `;
       
-      // Simple overlay just for positioning - tap to close
+      // Overlay UI
       const overlay = document.createElement("div");
       overlay.style.cssText = `
         position: absolute;
@@ -157,36 +194,75 @@ const StampPage = () => {
         left: 0;
         width: 100%;
         height: 100%;
-        pointer-events: all;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        padding: 20px;
-        box-sizing: border-box;
-        cursor: pointer;
+        pointer-events: none; /* Let clicks pass through to close button */
       `;
       
-      // Add tap to close functionality
-      overlay.onclick = () => stopScanning();
-      
-      // Simple scanning frame
+      // Scanning Frame (The box)
       const scanFrame = document.createElement("div");
       scanFrame.style.cssText = `
         width: 280px;
         height: 280px;
-        border: 3px solid #00ff00;
-        border-radius: 20px;
+        border: 4px solid #00ff00;
+        border-radius: 24px;
+        box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.7); /* Darken everything outside */
         position: relative;
-        background: transparent;
-        box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.6);
-        pointer-events: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       `;
+      
+      // "Scanning..." text
+      const scanText = document.createElement("div");
+      scanText.innerText = "Align QR Code within frame";
+      scanText.style.cssText = `
+        position: absolute;
+        bottom: -50px;
+        color: white;
+        font-size: 16px;
+        font-weight: 600;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        background: rgba(0,0,0,0.5);
+        padding: 8px 16px;
+        border-radius: 20px;
+      `;
+      scanFrame.appendChild(scanText);
+
+      // Close Button
+      const closeBtn = document.createElement("button");
+      closeBtn.innerHTML = "✕";
+      closeBtn.style.cssText = `
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.2);
+        border: none;
+        color: white;
+        font-size: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        pointer-events: auto;
+        backdrop-filter: blur(4px);
+        z-index: 10000;
+      `;
+      closeBtn.onclick = (e) => {
+        e.stopPropagation();
+        stopScanning();
+      };
       
       // Assemble the interface
       overlay.appendChild(scanFrame);
       cameraContainer.appendChild(video);
       cameraContainer.appendChild(overlay);
+      cameraContainer.appendChild(closeBtn);
       document.body.appendChild(cameraContainer);
       
       // Initialize QR Scanner
@@ -194,16 +270,15 @@ const StampPage = () => {
         video,
         (result) => {
             console.log('decoded qr code:', result);
-            // Handle both string (older versions) and object (newer versions) results
             const data = typeof result === 'object' && result.data ? result.data : result;
             handleQRCodeDetected(data);
-            stopScanning(); // Close camera after successful scan
         },
         { 
             returnDetailedScanResult: true,
             highlightScanRegion: true,
             highlightCodeOutline: true,
-            preferredCamera: 'environment'
+            preferredCamera: 'environment',
+            maxScansPerSecond: 5,
         }
       );
 
