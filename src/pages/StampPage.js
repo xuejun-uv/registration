@@ -89,15 +89,14 @@ const StampPage = () => {
     
     try {
       // Robust extraction of booth ID
+      let boothName = null;
+
       // 1. Try to find "boothX" or "booth X" anywhere in the string (case insensitive)
       const boothRegex = /booth\s*(\d+)/i;
       const match = data.match(boothRegex);
       
-      let boothName = null;
-      
       if (match) {
         const boothNumber = parseInt(match[1]);
-        // Validate it's between 1 and 11
         if (boothNumber >= 1 && boothNumber <= 11) {
             boothName = `booth${boothNumber}`;
         }
@@ -106,11 +105,11 @@ const StampPage = () => {
       // 2. Fallback: Check for URL parameter "booth=..."
       if (!boothName && data.includes('booth=')) {
         try {
-            // Handle full URL or just query string
             const queryString = data.includes('?') ? data.split('?')[1] : data;
             const urlParams = new URLSearchParams(queryString);
             const param = urlParams.get('booth');
             if (param) {
+                // Handle "booth1" or just "1"
                 const paramMatch = param.match(/(\d+)/);
                 if (paramMatch) {
                     const num = parseInt(paramMatch[1]);
@@ -123,8 +122,24 @@ const StampPage = () => {
             console.warn("Failed to parse URL params:", e);
         }
       }
+
+      // 3. Fallback: Check if the data is JUST a number (e.g. "1", " 5 ")
+      if (!boothName) {
+        const cleanData = data.trim();
+        if (/^\d+$/.test(cleanData)) {
+            const num = parseInt(cleanData);
+            if (num >= 1 && num <= 11) {
+                boothName = `booth${num}`;
+            }
+        }
+      }
       
-      if (boothName && id) {
+      if (boothName) {
+        if (!id) {
+            alert("⚠️ User ID missing. Please return to home page and register.");
+            return;
+        }
+
         const response = await fetch(`/api/mark-stamp?id=${id}&booth=${boothName}`, { 
           method: "POST" 
         });
@@ -137,7 +152,8 @@ const StampPage = () => {
           alert(`❌ ${result.error || result.message || 'Failed to collect stamp'}`);
         }
       } else {
-        alert(`⚠️ Invalid QR Code. Could not find a valid booth ID (Booth 1-11) in the scanned code.`);
+        // Debugging: Show exactly what was scanned
+        alert(`⚠️ Invalid QR Code.\n\nCould not find a valid booth ID (1-11) in the scanned code.\n\nScanned Data: "${data}"`);
       }
     } catch (error) {
       console.error("Error processing QR code:", error);
