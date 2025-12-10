@@ -4,6 +4,10 @@ import QrScanner from 'qr-scanner';
 import StampGrid from "../components/StampGrid";
 import "../App.css";
 
+// Fix for QrScanner worker in React/Webpack environment
+// Using a CDN to ensure the worker is loaded correctly
+QrScanner.WORKER_PATH = 'https://unpkg.com/qr-scanner@1.4.2/qr-scanner-worker.min.js';
+
 const StampPage = () => {
   const [searchParams] = useSearchParams();
   const [stamps, setStamps] = useState([]);
@@ -189,7 +193,9 @@ const StampPage = () => {
         video,
         (result) => {
             console.log('decoded qr code:', result);
-            handleQRCodeDetected(result.data);
+            // Handle both string (older versions) and object (newer versions) results
+            const data = typeof result === 'object' && result.data ? result.data : result;
+            handleQRCodeDetected(data);
             stopScanning(); // Close camera after successful scan
         },
         { 
