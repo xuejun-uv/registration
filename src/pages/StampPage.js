@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
+import QrScanner from 'qr-scanner';
 import StampGrid from "../components/StampGrid";
 import "../App.css";
 
@@ -10,6 +11,7 @@ const StampPage = () => {
   const [cameraError, setCameraError] = useState("");
   const [userError, setUserError] = useState("");
   const [userInfo, setUserInfo] = useState(null);
+  const scannerRef = useRef(null);
 
   const id = searchParams.get("id");
   const booth = searchParams.get("booth");
@@ -115,19 +117,10 @@ const StampPage = () => {
     try {
       console.log("Opening camera in browser...");
       
-      // Use the standard WebRTC MediaDevices API to request camera access
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { 
-          facingMode: 'environment', // Use rear camera for QR scanning
-          width: { ideal: 1280, max: 1920 },
-          height: { ideal: 720, max: 1080 }
-        } 
-      });
-      
       // Create fullscreen camera interface
       const cameraContainer = document.createElement("div");
       cameraContainer.id = "camera-scanner";
-      cameraContainer.style.cssText = `
+      cameraContainer.style.cssText = \`
         position: fixed;
         top: 0;
         left: 0;
@@ -139,25 +132,21 @@ const StampPage = () => {
         flex-direction: column;
         align-items: center;
         justify-content: center;
-      `;
+      \`;
       
-      // Create video element for camera preview using standard approach
+      // Create video element for camera preview
       const video = document.createElement("video");
       video.setAttribute('playsinline', true);
       video.setAttribute('muted', true);
-      video.setAttribute('autoplay', true); // Ensure autoplay as per WebRTC best practices
-      video.style.cssText = `
+      video.style.cssText = \`
         width: 100%;
         height: 100%;
         object-fit: cover;
-      `;
-      
-      // Set the video element source to the camera stream (standard WebRTC approach)
-      video.srcObject = stream;
+      \`;
       
       // Simple overlay just for positioning - tap to close
       const overlay = document.createElement("div");
-      overlay.style.cssText = `
+      overlay.style.cssText = \`
         position: absolute;
         top: 0;
         left: 0;
@@ -171,14 +160,14 @@ const StampPage = () => {
         padding: 20px;
         box-sizing: border-box;
         cursor: pointer;
-      `;
+      \`;
       
       // Add tap to close functionality
       overlay.onclick = () => stopScanning();
       
-      // Simple scanning frame without animation or instructions
+      // Simple scanning frame
       const scanFrame = document.createElement("div");
-      scanFrame.style.cssText = `
+      scanFrame.style.cssText = \`
         width: 280px;
         height: 280px;
         border: 3px solid #00ff00;
@@ -187,21 +176,37 @@ const StampPage = () => {
         background: transparent;
         box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.6);
         pointer-events: none;
-      `;
+      \`;
       
-      // Assemble the clean interface (no buttons or animations)
+      // Assemble the interface
       overlay.appendChild(scanFrame);
-      
       cameraContainer.appendChild(video);
       cameraContainer.appendChild(overlay);
       document.body.appendChild(cameraContainer);
       
-      // Video will start automatically due to autoplay attribute
-      // Users can tap anywhere on the overlay to close the camera
+      // Initialize QR Scanner
+      const qrScanner = new QrScanner(
+        video,
+        (result) => {
+            console.log('decoded qr code:', result);
+            handleQRCodeDetected(result.data);
+            stopScanning(); // Close camera after successful scan
+        },
+        { 
+            returnDetailedScanResult: true,
+            highlightScanRegion: true,
+            highlightCodeOutline: true,
+            preferredCamera: 'environment'
+        }
+      );
+
+      scannerRef.current = qrScanner;
+      await qrScanner.start();
       
     } catch (error) {
       console.error("Error accessing camera:", error);
       setIsScanning(false);
+      stopScanning();
       
       let errorMessage = "Camera access failed";
       if (error.name === 'NotAllowedError') {
@@ -213,7 +218,6 @@ const StampPage = () => {
       }
       
       setCameraError(errorMessage);
-      // No manual input fallback to prevent cheating
     }
   };
 
@@ -221,14 +225,15 @@ const StampPage = () => {
   const stopScanning = () => {
     setIsScanning(false);
     
+    if (scannerRef.current) {
+      scannerRef.current.stop();
+      scannerRef.current.destroy();
+      scannerRef.current = null;
+    }
+
     // Remove camera interface
     const cameraContainer = document.getElementById("camera-scanner");
     if (cameraContainer) {
-      // Stop all video tracks
-      const video = cameraContainer.querySelector('video');
-      if (video && video.srcObject) {
-        video.srcObject.getTracks().forEach(track => track.stop());
-      }
       cameraContainer.remove();
     }
     
