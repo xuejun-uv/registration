@@ -1,23 +1,12 @@
 import React, { useState } from "react";
+import { BOOTH_CONFIG } from "../constants";
 import "../App.css";
 
 const AdminPage = () => {
   const [selectedBooth, setSelectedBooth] = useState("");
 
-  // List of booths with their corresponding QR code files
-  const booths = [
-    { id: "booth1", name: "Booth 1", qrFile: "booth1_qrcode-1024.png" },
-    { id: "booth2", name: "Booth 2", qrFile: "booth2_qrcode.png" },
-    { id: "booth3", name: "Booth 3", qrFile: "booth3_qrcode-1024.png" },
-    { id: "booth4", name: "Booth 4", qrFile: "booth4_qrcode-1024.png" },
-    { id: "booth5", name: "Booth 5", qrFile: "booth5_qrcode-1024.png" },
-    { id: "booth6", name: "Booth 6", qrFile: "booth6_qrcode-1024.png" },
-    { id: "booth7", name: "Booth 7", qrFile: "booth7_qrcode-1024.png" },
-    { id: "booth8", name: "Booth 8", qrFile: "booth8_qrcode-1024.png" },
-    { id: "booth9", name: "Booth 9", qrFile: "booth9_qrcode-1024.png" },
-    { id: "booth10", name: "Booth 10", qrFile: "booth10_qrcode-1024.png" },
-    { id: "booth11", name: "Booth 11", qrFile: "booth11_qrcode-1024.png" }
-  ];
+  // Convert BOOTH_CONFIG object to array for dropdown
+  const booths = Object.values(BOOTH_CONFIG);
 
   const handleBoothChange = (e) => {
     setSelectedBooth(e.target.value);
@@ -225,7 +214,7 @@ const AdminPage = () => {
               marginBottom: '20px'
             }}>
               <img 
-                src={`/${selectedBoothData.qrFile}`}
+                src={selectedBoothData.qrFile}
                 alt={`${selectedBoothData.name} QR Code`}
                 style={{
                   maxWidth: '100%',
@@ -250,6 +239,26 @@ const AdminPage = () => {
               </div>
             </div>
 
+            {/* Stamp Image Preview */}
+            <div style={{
+              marginBottom: '20px',
+              textAlign: 'center'
+            }}>
+              <p style={{ fontSize: '14px', color: '#6b7280', marginBottom: '8px' }}>Stamp Image Preview:</p>
+              <img 
+                src={selectedBoothData.image}
+                alt={`${selectedBoothData.name} Stamp`}
+                style={{
+                  width: '100px',
+                  height: '100px',
+                  objectFit: 'cover',
+                  borderRadius: '12px',
+                  border: '2px solid white',
+                  boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                }}
+              />
+            </div>
+
             <div style={{
               background: 'rgba(59, 130, 246, 0.1)',
               border: '1px solid rgba(59, 130, 246, 0.2)',
@@ -259,6 +268,11 @@ const AdminPage = () => {
               color: '#2563eb',
               fontWeight: '500',
               lineHeight: '1.5'
+            }}>
+              <span>💡</span> Scan this QR code to collect the stamp shown above.
+              <br/>
+              <span style={{ fontSize: '12px', opacity: 0.8 }}>Data: {selectedBoothData.id}</span>
+            </div>
             }}>
               <span>💡</span> Scan this QR code with the registration app to mark stamps for {selectedBoothData.name}
             </div>
