@@ -14,8 +14,14 @@ const StampGrid = ({ count, stamps = [], startIndex = 1 }) => {
   return (
     <div className="stamp-grid">
       {stampBoxes.map((stampBox) => {
-        // Use boothX.jpg as requested by user
-        const imagePath = `/booth${stampBox.index}.jpg`;
+        // Determine correct image path based on known file extensions
+        // Booths 5, 6, 7 are PNGs. All others are JPGs.
+        let imagePath;
+        if (stampBox.index >= 5 && stampBox.index <= 7) {
+            imagePath = `/booth${stampBox.index}.png`;
+        } else {
+            imagePath = `/booth${stampBox.index}.jpg`;
+        }
         
         return (
           <div
@@ -33,7 +39,7 @@ const StampGrid = ({ count, stamps = [], startIndex = 1 }) => {
                 opacity: stampBox.filled ? 1 : 0.3
               }}
               onError={(e) => {
-                // Fallback to old naming convention if boothX.jpg fails
+                // Fallback to old naming convention if new image fails
                 const ext = stampBox.index === 9 ? 'jpg' : 'png';
                 e.target.src = `/s${stampBox.index}.${ext}`;
               }}
