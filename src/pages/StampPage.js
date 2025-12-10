@@ -92,39 +92,37 @@ const StampPage = () => {
       // Robust extraction of booth ID
       let boothName = null;
 
-      // 1. Try to find "boothX" or "booth X" anywhere in the string (case insensitive)
-      const boothRegex = /booth\s*(\d+)/i;
-      const match = data.match(boothRegex);
-      
-      if (match) {
-        const boothNumber = parseInt(match[1]);
-        if (boothNumber >= 1 && boothNumber <= 11) {
-            boothName = `booth${boothNumber}`;
-        }
-      }
-
-      // 2. Fallback: Check for URL parameter "booth=..."
-      if (!boothName && data.includes('booth=')) {
-        try {
-            const queryString = data.includes('?') ? data.split('?')[1] : data;
-            const urlParams = new URLSearchParams(queryString);
-            const param = urlParams.get('booth');
-            if (param) {
-                // Handle "booth1" or just "1"
-                const paramMatch = param.match(/(\d+)/);
-                if (paramMatch) {
-                    const num = parseInt(paramMatch[1]);
-                    if (num >= 1 && num <= 11) {
-                        boothName = `booth${num}`;
-                    }
-                }
+      // Strategy 1: Parse as URL (Most reliable for generated QRs)
+      try {
+        // If data is just query string or partial, make it a full URL to parse
+        const urlString = data.startsWith('http') ? data : `http://dummy.com?${data}`;
+        const url = new URL(urlString);
+        const param = url.searchParams.get('booth');
+        
+        if (param) {
+            // Extract digits from "booth1", "1", "Booth 1", etc.
+            const num = parseInt(param.replace(/\D/g, ''));
+            if (num >= 1 && num <= 11) {
+                boothName = `booth${num}`;
             }
-        } catch (e) {
-            console.warn("Failed to parse URL params:", e);
+        }
+      } catch (e) {
+        console.log("Not a valid URL structure");
+      }
+
+      // Strategy 2: Regex for "booth" followed by number (with loose separators)
+      // Handles: "booth1", "Booth 1", "booth-1", "booth: 1"
+      if (!boothName) {
+        const match = data.match(/booth[\W_]*(\d+)/i);
+        if (match) {
+            const num = parseInt(match[1]);
+            if (num >= 1 && num <= 11) {
+                boothName = `booth${num}`;
+            }
         }
       }
 
-      // 3. Fallback: Check if the data is JUST a number (e.g. "1", " 5 ")
+      // Strategy 3: Just a number?
       if (!boothName) {
         const cleanData = data.trim();
         if (/^\d+$/.test(cleanData)) {
@@ -159,7 +157,12 @@ const StampPage = () => {
           setStamps(result.stamps);
           alert(`✅ Success! Stamp collected for ${boothConfig.name}`);
         } else {
-          alert(`❌ ${result.error || result.message || 'Failed to collect stamp'}`);
+          // Handle "Already visited" as a soft success (yellow alert)
+          if (response.status === 409) {
+             alert(`⚠️ You have already collected the stamp for ${boothConfig.name}!`);
+          } else {
+             alert(`❌ ${result.error || result.message || 'Failed to collect stamp'}`);
+          }
         }
       } else {
         // Debugging: Show exactly what was scanned
