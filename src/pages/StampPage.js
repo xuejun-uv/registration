@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import QrScanner from 'qr-scanner';
 import StampGrid from "../components/StampGrid";
+import { BOOTH_CONFIG } from "../constants";
 import "../App.css";
 
 // Fix for QrScanner worker in React/Webpack environment
@@ -135,6 +136,15 @@ const StampPage = () => {
       }
       
       if (boothName) {
+        // Validate against our config to ensure it's a real booth
+        const boothNum = parseInt(boothName.replace('booth', ''));
+        const boothConfig = BOOTH_CONFIG[boothNum];
+        
+        if (!boothConfig) {
+             alert(`⚠️ Invalid Booth ID: ${boothName}`);
+             return;
+        }
+
         if (!id) {
             alert("⚠️ User ID missing. Please return to home page and register.");
             return;
@@ -147,7 +157,7 @@ const StampPage = () => {
         
         if (result.success) {
           setStamps(result.stamps);
-          alert(`✅ Success! Stamp collected for ${boothName.replace('booth', 'Booth ')}`);
+          alert(`✅ Success! Stamp collected for ${boothConfig.name}`);
         } else {
           alert(`❌ ${result.error || result.message || 'Failed to collect stamp'}`);
         }

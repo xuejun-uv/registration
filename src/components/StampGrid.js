@@ -1,4 +1,5 @@
 import React from 'react';
+import { BOOTH_CONFIG } from '../constants';
 
 const StampGrid = ({ count, stamps = [], startIndex = 1 }) => {
   // Create array of stamp boxes based on count
@@ -7,30 +8,25 @@ const StampGrid = ({ count, stamps = [], startIndex = 1 }) => {
     const isStamped = stamps.some(stamp => stamp.boothId === `booth${boothNumber}` && stamp.filled);
     return {
       index: boothNumber,
-      filled: isStamped
+      filled: isStamped,
+      config: BOOTH_CONFIG[boothNumber] // Get config for this booth
     };
   });
 
   return (
     <div className="stamp-grid">
       {stampBoxes.map((stampBox) => {
-        // Determine correct image path based on known file extensions
-        // Booths 5, 6, 7 are PNGs. All others are JPGs.
-        let imagePath;
-        if (stampBox.index >= 5 && stampBox.index <= 7) {
-            imagePath = `/booth${stampBox.index}.png`;
-        } else {
-            imagePath = `/booth${stampBox.index}.jpg`;
-        }
+        // Use image from config, or fallback to generated path
+        const imagePath = stampBox.config ? stampBox.config.image : \`/booth\${stampBox.index}.jpg\`;
         
         return (
           <div
             key={stampBox.index}
-            className={`stamp-box ${stampBox.filled ? 'filled' : ''}`}
+            className={\`stamp-box \${stampBox.filled ? 'filled' : ''}\`}
           >
             <img 
               src={imagePath}
-              alt={`Stamp ${stampBox.index}`}
+              alt={\`Stamp \${stampBox.index}\`}
               style={{
                 width: '100%',
                 height: '100%',
@@ -41,7 +37,7 @@ const StampGrid = ({ count, stamps = [], startIndex = 1 }) => {
               onError={(e) => {
                 // Fallback to old naming convention if new image fails
                 const ext = stampBox.index === 9 ? 'jpg' : 'png';
-                e.target.src = `/s${stampBox.index}.${ext}`;
+                e.target.src = \`/s\${stampBox.index}.\${ext}\`;
               }}
             />
             {stampBox.filled && (
