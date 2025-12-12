@@ -213,21 +213,30 @@ const AdminPage = () => {
               border: '1px solid rgba(0, 0, 0, 0.05)',
               marginBottom: '20px'
             }}>
-              <img 
-                src={selectedBoothData.qrFile}
-                alt={`${selectedBoothData.name} QR Code`}
-                style={{
-                  maxWidth: '100%',
-                  height: 'auto',
-                  borderRadius: '12px',
-                  display: 'block',
-                  margin: '0 auto'
-                }}
-                onError={(e) => {
-                  e.target.style.display = 'none';
-                  e.target.nextSibling.style.display = 'block';
-                }}
-              />
+              <a 
+                href={`/stamps?booth=${selectedBoothData.id}`} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                style={{ display: 'block', textDecoration: 'none' }}
+                title="Click to test stamp collection (Simulate Scan)"
+              >
+                <img 
+                  src={selectedBoothData.qrFile}
+                  alt={`${selectedBoothData.name} QR Code`}
+                  style={{
+                    maxWidth: '100%',
+                    height: 'auto',
+                    borderRadius: '12px',
+                    display: 'block',
+                    margin: '0 auto',
+                    cursor: 'pointer'
+                  }}
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                    e.target.parentElement.nextSibling.style.display = 'block';
+                  }}
+                />
+              </a>
               <div style={{
                 display: 'none',
                 padding: '40px',

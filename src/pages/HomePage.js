@@ -35,6 +35,10 @@ const HomePage = () => {
       });
       const data = await res.json();
       if (data && data.success && data.id) {
+        // Save ID to localStorage for persistence
+        localStorage.setItem('userId', data.id);
+        localStorage.setItem('userNickname', nickname.trim());
+
         if (data.isReturningUser) {
           setSuccessMessage(`Welcome back, ${nickname}!`);
         } else {

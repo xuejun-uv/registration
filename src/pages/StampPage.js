@@ -10,7 +10,7 @@ import "../App.css";
 QrScanner.WORKER_PATH = 'https://unpkg.com/qr-scanner@1.4.2/qr-scanner-worker.min.js';
 
 const StampPage = () => {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [stamps, setStamps] = useState([]);
   const [isScanning, setIsScanning] = useState(false);
   const [cameraError, setCameraError] = useState("");
@@ -18,8 +18,26 @@ const StampPage = () => {
   const [userInfo, setUserInfo] = useState(null);
   const scannerRef = useRef(null);
 
-  const id = searchParams.get("id");
+  // Get ID from URL or LocalStorage
+  const urlId = searchParams.get("id");
+  const [id, setId] = useState(urlId || localStorage.getItem('userId'));
+
   const booth = searchParams.get("booth");
+
+  // Sync ID with LocalStorage and URL
+  useEffect(() => {
+    if (urlId) {
+      setId(urlId);
+      localStorage.setItem('userId', urlId);
+    } else {
+      const storedId = localStorage.getItem('userId');
+      if (storedId) {
+        setId(storedId);
+        // Optional: Update URL to reflect ID
+        // setSearchParams({ id: storedId }); 
+      }
+    }
+  }, [urlId]);
 
   // Initialize stamps array
   useEffect(() => {
@@ -417,6 +435,33 @@ const StampPage = () => {
                 : "📸 Start Camera Scan"
             }
           </button>
+
+          {/* Manual Entry Fallback */}
+          {id && !isScanning && (
+            <div style={{ marginTop: '16px' }}>
+              <button
+                onClick={() => {
+                  const input = prompt("Enter Booth Number (1-11):");
+                  if (input) {
+                    handleQRCodeDetected(input);
+                  }
+                }}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.5)',
+                  border: '1px solid rgba(0, 0, 0, 0.1)',
+                  padding: '10px 20px',
+                  borderRadius: '12px',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  color: '#4b5563',
+                  fontWeight: '500',
+                  backdropFilter: 'blur(4px)'
+                }}
+              >
+                ⌨️ Enter Code Manually
+              </button>
+            </div>
+          )}
           
           {cameraError && (
             <div style={{
