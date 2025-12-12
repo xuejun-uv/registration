@@ -12,11 +12,17 @@ QrScanner.WORKER_PATH = 'https://unpkg.com/qr-scanner@1.4.2/qr-scanner-worker.mi
 const StampPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [stamps, setStamps] = useState([]);
+  
+  // Camera & Scanning States
   const [isScanning, setIsScanning] = useState(false);
   const [cameraError, setCameraError] = useState("");
   const [userError, setUserError] = useState("");
   const [userInfo, setUserInfo] = useState(null);
+  
+  // Refs for scanner cleanup
+  const videoRef = useRef(null);
   const scannerRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   // Get ID from URL or LocalStorage
   const urlId = searchParams.get("id");
@@ -33,8 +39,6 @@ const StampPage = () => {
       const storedId = localStorage.getItem('userId');
       if (storedId) {
         setId(storedId);
-        // Optional: Update URL to reflect ID
-        // setSearchParams({ id: storedId }); 
       }
     }
   }, [urlId]);
@@ -48,7 +52,7 @@ const StampPage = () => {
     setStamps(initialStamps);
   }, []);
 
-  // Fetch user stamp data when an ID is provided
+  // Fetch user stamp data
   useEffect(() => {
     if (id) {
       setUserError("");
@@ -74,251 +78,98 @@ const StampPage = () => {
   // Mark a stamp if both id and booth are present
   useEffect(() => {
     if (id && booth) {
-      fetch(`/api/mark-stamp?id=${id}&booth=${booth}`, { method: "POST" })
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.success && data.stamps) {
-            setStamps(data.stamps);
-            if (data.message) {
-              console.log(data.message);
-            }
-          } else {
-            console.error("Stamp marking failed:", data.error);
-            setCameraError(data.error || "Failed to mark stamp");
-          }
-        })
-        .catch((err) => {
-          console.error("Error marking stamp:", err);
-          setCameraError("Unable to mark stamp - connection error");
-        });
+      handleMarkStamp(booth);
     }
   }, [id, booth]);
 
-  // Handle QR code detection result
-  const handleQRCodeDetected = async (data) => {
-    console.log("QR Code detected:", data);
+  const handleMarkStamp = (boothName) => {
+    if (!id) return;
     
-    // Stop scanning immediately to prevent multiple triggers
-    stopScanning();
-
-    // Haptic feedback if available
-    if (navigator.vibrate) {
-      navigator.vibrate(200);
-    }
-    
-    try {
-      // Robust extraction of booth ID
-      let boothName = null;
-
-      // Strategy 1: Parse as URL (Most reliable for generated QRs)
-      try {
-        // If data is just query string or partial, make it a full URL to parse
-        const urlString = data.startsWith('http') ? data : `http://dummy.com?${data}`;
-        const url = new URL(urlString);
-        const param = url.searchParams.get('booth');
-        
-        if (param) {
-            // Extract digits from "booth1", "1", "Booth 1", etc.
-            const num = parseInt(param.replace(/\D/g, ''));
-            if (num >= 1 && num <= 11) {
-                boothName = `booth${num}`;
-            }
-        }
-      } catch (e) {
-        console.log("Not a valid URL structure");
-      }
-
-      // Strategy 2: Regex for "booth" followed by number (with loose separators)
-      // Handles: "booth1", "Booth 1", "booth-1", "booth: 1"
-      if (!boothName) {
-        const match = data.match(/booth[\W_]*(\d+)/i);
-        if (match) {
-            const num = parseInt(match[1]);
-            if (num >= 1 && num <= 11) {
-                boothName = `booth${num}`;
-            }
-        }
-      }
-
-      // Strategy 3: Just a number?
-      if (!boothName) {
-        const cleanData = data.trim();
-        if (/^\d+$/.test(cleanData)) {
-            const num = parseInt(cleanData);
-            if (num >= 1 && num <= 11) {
-                boothName = `booth${num}`;
-            }
-        }
-      }
-      
-      if (boothName) {
-        // Validate against our config to ensure it's a real booth
-        const boothNum = parseInt(boothName.replace('booth', ''));
-        const boothConfig = BOOTH_CONFIG[boothNum];
-        
-        if (!boothConfig) {
-             alert(`⚠️ Invalid Booth ID: ${boothName}`);
-             return;
-        }
-
-        if (!id) {
-            alert("⚠️ User ID missing. Please return to home page and register.");
-            return;
-        }
-
-        const response = await fetch(`/api/mark-stamp?id=${id}&booth=${boothName}`, { 
-          method: "POST" 
-        });
-        const result = await response.json();
-        
-        if (result.success) {
-          setStamps(result.stamps);
-          alert(`✅ Success! Stamp collected for ${boothConfig.name}`);
+    fetch(`/api/mark-stamp?id=${id}&booth=${boothName}`, { method: "POST" })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.stamps) {
+          setStamps(data.stamps);
+          
+          // Find booth name for the alert
+          const boothNum = parseInt(boothName.replace('booth', ''));
+          const boothConfig = BOOTH_CONFIG[boothNum];
+          alert(`✅ Success! Stamp collected for ${boothConfig?.name || boothName}`);
         } else {
-          // Handle "Already visited" as a soft success (yellow alert)
-          if (response.status === 409) {
-             alert(`⚠️ You have already collected the stamp for ${boothConfig.name}!`);
+          if (data.status === 409 || data.message?.includes("already")) {
+             alert(`⚠️ You have already collected this stamp!`);
           } else {
-             alert(`❌ ${result.error || result.message || 'Failed to collect stamp'}`);
+             alert(`❌ ${data.error || "Failed to mark stamp"}`);
           }
         }
-      } else {
-        // Debugging: Show exactly what was scanned
-        alert(`⚠️ Invalid QR Code.\n\nCould not find a valid booth ID (1-11) in the scanned code.\n\nScanned Data: "${data}"`);
+      })
+      .catch((err) => {
+        console.error("Error marking stamp:", err);
+        alert("Unable to mark stamp - connection error");
+      });
+  };
+
+  // --- Core Scanning Logic ---
+
+  const processScannedData = (data) => {
+    console.log("Processing data:", data);
+    
+    // Haptic feedback
+    if (navigator.vibrate) navigator.vibrate(200);
+
+    let boothName = null;
+
+    // 1. Try parsing as URL
+    try {
+      const urlString = data.startsWith('http') ? data : `http://dummy.com?${data}`;
+      const url = new URL(urlString);
+      const param = url.searchParams.get('booth');
+      if (param) {
+          const num = parseInt(param.replace(/\D/g, ''));
+          if (num >= 1 && num <= 11) boothName = `booth${num}`;
       }
-    } catch (error) {
-      console.error("Error processing QR code:", error);
-      alert(`❌ Error processing QR code: ${error.message}`);
+    } catch (e) {}
+
+    // 2. Regex search
+    if (!boothName) {
+      const match = data.match(/booth[\W_]*(\d+)/i);
+      if (match) {
+          const num = parseInt(match[1]);
+          if (num >= 1 && num <= 11) boothName = `booth${num}`;
+      }
+    }
+
+    // 3. Raw number
+    if (!boothName) {
+      const cleanData = data.trim();
+      if (/^\d+$/.test(cleanData)) {
+          const num = parseInt(cleanData);
+          if (num >= 1 && num <= 11) boothName = `booth${num}`;
+      }
+    }
+    
+    if (boothName) {
+      setIsScanning(false); // Stop scanning on success
+      handleMarkStamp(boothName);
+    } else {
+      alert(`⚠️ Invalid QR Code.\nCould not find a valid booth ID (1-11).\nData: "${data}"`);
+      // Note: We don't stop scanning here, letting user try again
     }
   };
 
-  // Handle web camera scanning within Chrome/Google browser
-  const handleScan = async () => {
-    if (isScanning) {
-      stopScanning();
-      return;
-    }
-    
-    setCameraError("");
-    setIsScanning(true);
-    
-    try {
-      console.log("Opening camera in browser...");
-      
-      // Create fullscreen camera interface
-      const cameraContainer = document.createElement("div");
-      cameraContainer.id = "camera-scanner";
-      cameraContainer.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: #000;
-        z-index: 9999;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-      `;
-      
-      // Create video element for camera preview
-      const video = document.createElement("video");
-      video.setAttribute('playsinline', true);
-      video.setAttribute('muted', true);
-      video.style.cssText = `
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        opacity: 0.6; /* Dim the video slightly */
-      `;
-      
-      // Overlay UI
-      const overlay = document.createElement("div");
-      overlay.style.cssText = `
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        pointer-events: none; /* Let clicks pass through to close button */
-      `;
-      
-      // Scanning Frame (The box)
-      const scanFrame = document.createElement("div");
-      scanFrame.style.cssText = `
-        width: 280px;
-        height: 280px;
-        border: 4px solid #00ff00;
-        border-radius: 24px;
-        box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.7); /* Darken everything outside */
-        position: relative;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      `;
-      
-      // "Scanning..." text
-      const scanText = document.createElement("div");
-      scanText.innerText = "Align QR Code within frame";
-      scanText.style.cssText = `
-        position: absolute;
-        bottom: -50px;
-        color: white;
-        font-size: 16px;
-        font-weight: 600;
-        text-shadow: 0 2px 4px rgba(0,0,0,0.5);
-        background: rgba(0,0,0,0.5);
-        padding: 8px 16px;
-        border-radius: 20px;
-      `;
-      scanFrame.appendChild(scanText);
+  // --- Camera Effect Hook ---
+  useEffect(() => {
+    let qrScanner = null;
 
-      // Close Button
-      const closeBtn = document.createElement("button");
-      closeBtn.innerHTML = "✕";
-      closeBtn.style.cssText = `
-        position: absolute;
-        top: 20px;
-        right: 20px;
-        width: 44px;
-        height: 44px;
-        border-radius: 50%;
-        background: rgba(255, 255, 255, 0.2);
-        border: none;
-        color: white;
-        font-size: 24px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        pointer-events: auto;
-        backdrop-filter: blur(4px);
-        z-index: 10000;
-      `;
-      closeBtn.onclick = (e) => {
-        e.stopPropagation();
-        stopScanning();
-      };
+    if (isScanning && videoRef.current) {
+      setCameraError("");
       
-      // Assemble the interface
-      overlay.appendChild(scanFrame);
-      cameraContainer.appendChild(video);
-      cameraContainer.appendChild(overlay);
-      cameraContainer.appendChild(closeBtn);
-      document.body.appendChild(cameraContainer);
-      
-      // Initialize QR Scanner
-      const qrScanner = new QrScanner(
-        video,
+      // Initialize Scanner
+      qrScanner = new QrScanner(
+        videoRef.current,
         (result) => {
-            console.log('decoded qr code:', result);
             const data = typeof result === 'object' && result.data ? result.data : result;
-            handleQRCodeDetected(data);
+            processScannedData(data);
         },
         { 
             returnDetailedScanResult: true,
@@ -329,74 +180,60 @@ const StampPage = () => {
         }
       );
 
-      scannerRef.current = qrScanner;
-      await qrScanner.start();
-      
-    } catch (error) {
-      console.error("Error accessing camera:", error);
-      setIsScanning(false);
-      stopScanning();
-      
-      let errorMessage = "Camera access failed";
-      if (error.name === 'NotAllowedError') {
-        errorMessage = "📷 Camera permission denied. Please allow camera access in your browser.";
-      } else if (error.name === 'NotFoundError') {
-        errorMessage = "📵 No camera found on this device.";
-      } else if (error.name === 'NotReadableError') {
-        errorMessage = "📷 Camera is being used by another app.";
-      }
-      
-      setCameraError(errorMessage);
-    }
-  };
+      qrScanner.start().catch((err) => {
+        console.error("Camera start error:", err);
+        setCameraError("Camera failed to start. Please try the 'Upload Image' button instead.");
+        setIsScanning(false);
+      });
 
-  // Stop camera and cleanup
+      scannerRef.current = qrScanner;
+    }
+
+    // Cleanup function
+    return () => {
+      if (qrScanner) {
+        qrScanner.stop();
+        qrScanner.destroy();
+        scannerRef.current = null;
+      }
+    };
+  }, [isScanning]); // Re-run only when scanning state changes
+
   const stopScanning = () => {
     setIsScanning(false);
-    
-    if (scannerRef.current) {
-      scannerRef.current.stop();
-      scannerRef.current.destroy();
-      scannerRef.current = null;
-    }
-
-    // Remove camera interface
-    const cameraContainer = document.getElementById("camera-scanner");
-    if (cameraContainer) {
-      cameraContainer.remove();
-    }
-    
-    // Remove injected styles
-    const styles = document.querySelectorAll('style');
-    styles.forEach(style => {
-      if (style.textContent.includes('@keyframes scanMove')) {
-        style.remove();
-      }
-    });
-    
-    console.log("Camera scanning stopped");
   };
 
-  // Cleanup on component unmount
-  React.useEffect(() => {
-    return () => {
-      stopScanning();
-    };
-  }, []);
+  // --- File Upload Fallback ---
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    try {
+      const result = await QrScanner.scanImage(file);
+      processScannedData(result);
+    } catch (error) {
+      console.error("File scan error:", error);
+      alert("❌ Could not detect a QR code in this image. Please ensure the QR code is clear.");
+    } finally {
+      // Reset input so same file can be selected again
+      e.target.value = null; 
+    }
+  };
 
   return (
     <div className="stamp-page">
       <div className="container">
         <h1 className="title">Stamp Collection</h1>
         
-        <div style={{ marginBottom: "20px" }}>
+        {/* Actions Area */}
+        <div style={{ marginBottom: "20px", display: "flex", flexDirection: "column", gap: "10px", alignItems: "center" }}>
+          
+          {/* 1. Main Camera Button */}
           <button 
-            onClick={handleScan}
-            disabled={!id}
+            onClick={() => setIsScanning(true)}
+            disabled={!id || isScanning}
             style={{
-              background: isScanning 
-                ? 'linear-gradient(135deg, #ff6b6b, #ee5a6f)' 
-                : 'linear-gradient(135deg, #4ecdc4, #44a08d)',
+              background: 'linear-gradient(135deg, #4ecdc4, #44a08d)',
               color: 'white',
               border: 'none',
               padding: '16px 24px',
@@ -404,126 +241,182 @@ const StampPage = () => {
               fontSize: '16px',
               fontWeight: '700',
               cursor: !id ? 'not-allowed' : 'pointer',
-              transition: 'all 0.3s ease',
-              boxShadow: '0 8px 20px rgba(0,0,0,0.15)',
               width: '100%',
               maxWidth: '300px',
               opacity: !id ? 0.6 : 1,
-              transform: 'scale(1)',
-              touchAction: 'manipulation'
-            }}
-            onMouseDown={(e) => {
-              if (id && !isScanning) {
-                e.target.style.transform = 'scale(0.98)';
-              }
-            }}
-            onMouseUp={(e) => {
-              if (id) {
-                e.target.style.transform = 'scale(1)';
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (id) {
-                e.target.style.transform = 'scale(1)';
-              }
+              boxShadow: '0 4px 12px rgba(78, 205, 196, 0.4)'
             }}
           >
-            {!id 
-              ? "🚫 Need User ID to Scan" 
-              : isScanning 
-                ? "📷 Stop Camera" 
-                : "📸 Start Camera Scan"
-            }
+            📸 Scan QR with Camera
           </button>
 
-          {/* Manual Entry Fallback */}
-          {id && !isScanning && (
-            <div style={{ marginTop: '16px' }}>
-              <button
+          {/* 2. Upload Image Fallback (Crucial for fixing camera errors) */}
+          <button 
+            onClick={() => fileInputRef.current?.click()}
+            disabled={!id}
+            style={{
+              background: 'white',
+              color: '#4b5563',
+              border: '2px solid #e5e7eb',
+              padding: '12px 24px',
+              borderRadius: '16px',
+              fontSize: '14px',
+              fontWeight: '600',
+              cursor: !id ? 'not-allowed' : 'pointer',
+              width: '100%',
+              maxWidth: '300px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px'
+            }}
+          >
+            🖼️ Upload QR Image (If camera fails)
+          </button>
+          <input 
+            type="file" 
+            ref={fileInputRef} 
+            onChange={handleFileUpload} 
+            accept="image/*" 
+            style={{ display: 'none' }} 
+          />
+
+          {/* 3. Manual Entry */}
+          {id && (
+            <button
                 onClick={() => {
                   const input = prompt("Enter Booth Number (1-11):");
-                  if (input) {
-                    handleQRCodeDetected(input);
-                  }
+                  if (input) processScannedData(input);
                 }}
                 style={{
-                  background: 'rgba(255, 255, 255, 0.5)',
-                  border: '1px solid rgba(0, 0, 0, 0.1)',
-                  padding: '10px 20px',
-                  borderRadius: '12px',
-                  fontSize: '14px',
-                  cursor: 'pointer',
-                  color: '#4b5563',
-                  fontWeight: '500',
-                  backdropFilter: 'blur(4px)'
+                  background: 'transparent',
+                  border: 'none',
+                  color: '#6b7280',
+                  fontSize: '13px',
+                  textDecoration: 'underline',
+                  cursor: 'pointer'
                 }}
               >
-                ⌨️ Enter Code Manually
-              </button>
-            </div>
+                Or enter code manually
+            </button>
           )}
-          
+
+          {/* Error Messages */}
           {cameraError && (
             <div style={{
-              marginTop: "12px",
-              padding: "12px 16px",
-              background: "rgba(239, 68, 68, 0.1)",
-              border: "1px solid rgba(239, 68, 68, 0.2)",
+              padding: "12px",
+              background: "#fee2e2",
+              border: "1px solid #ef4444",
               borderRadius: "12px",
-              color: "#dc2626",
+              color: "#b91c1c",
               fontSize: "14px",
-              textAlign: "center",
-              fontWeight: "500"
+              textAlign: "center"
             }}>
               ⚠️ {cameraError}
             </div>
           )}
 
           {userError && (
-            <div style={{
-              marginTop: "12px",
-              padding: "12px 16px",
-              background: "rgba(239, 68, 68, 0.1)",
-              border: "1px solid rgba(239, 68, 68, 0.2)",
-              borderRadius: "12px",
-              color: "#dc2626",
-              fontSize: "14px",
-              textAlign: "center",
-              fontWeight: "500"
-            }}>
-              🚫 {userError}
-            </div>
+            <div style={{ color: "red", fontSize: "14px" }}>🚫 {userError}</div>
           )}
           
           {!id && (
-            <div style={{
-              marginTop: "12px",
-              padding: "12px 16px",
-              background: "rgba(59, 130, 246, 0.1)",
-              border: "1px solid rgba(59, 130, 246, 0.2)",
-              borderRadius: "12px",
-              color: "#2563eb",
-              fontSize: "14px",
-              textAlign: "center",
-              fontWeight: "500"
-            }}>
-              💡 Enter your nickname first to enable QR scanning
+            <div style={{ color: "#2563eb", fontSize: "14px" }}>
+              💡 Enter your nickname first to enable scanning
             </div>
           )}
         </div>
 
-        {id && userInfo && (
+        {/* User Info Display */}
+        {id && (
           <p className="user-info">
-            Welcome, {userInfo.nickname}! (ID: {id})
+            {userInfo ? `Welcome, ${userInfo.nickname}!` : `User ID: ${id}`}
           </p>
         )}
 
-        {id && !userInfo && !userError && (
-          <p className="user-info">
-            User ID: {id}
-          </p>
+        {/* --- Fullscreen Camera Overlay --- */}
+        {isScanning && (
+            <div style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                width: '100vw',
+                height: '100vh',
+                backgroundColor: 'black',
+                zIndex: 9999,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center'
+            }}>
+                {/* Close Button */}
+                <button 
+                    onClick={stopScanning}
+                    style={{
+                        position: 'absolute',
+                        top: '20px',
+                        right: '20px',
+                        background: 'rgba(255,255,255,0.2)',
+                        border: 'none',
+                        color: 'white',
+                        fontSize: '24px',
+                        width: '40px',
+                        height: '40px',
+                        borderRadius: '50%',
+                        cursor: 'pointer',
+                        zIndex: 10001
+                    }}
+                >
+                    ✕
+                </button>
+
+                {/* Camera View */}
+                <div style={{
+                    width: '100%',
+                    height: '100%',
+                    position: 'relative',
+                    overflow: 'hidden'
+                }}>
+                    <video 
+                        ref={videoRef}
+                        style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover'
+                        }}
+                    />
+                    
+                    {/* Scan Frame Overlay */}
+                    <div style={{
+                        position: 'absolute',
+                        top: '50%',
+                        left: '50%',
+                        transform: 'translate(-50%, -50%)',
+                        width: '280px',
+                        height: '280px',
+                        border: '4px solid #00ff00',
+                        borderRadius: '24px',
+                        boxShadow: '0 0 0 9999px rgba(0,0,0,0.7)',
+                        pointerEvents: 'none'
+                    }} />
+                    
+                    <div style={{
+                        position: 'absolute',
+                        bottom: '100px',
+                        left: 0,
+                        width: '100%',
+                        textAlign: 'center',
+                        color: 'white',
+                        fontWeight: 'bold',
+                        textShadow: '0 2px 4px rgba(0,0,0,0.8)'
+                    }}>
+                        Align QR Code within frame
+                    </div>
+                </div>
+            </div>
         )}
 
+        {/* Stamp Grids */}
         <h2>Discovery Atrium</h2>
         <StampGrid count={4} stamps={stamps.slice(0, 4)} startIndex={1} />
 
@@ -532,15 +425,6 @@ const StampPage = () => {
 
         <h2>Experience Zone</h2>
         <StampGrid count={4} stamps={stamps.slice(7, 11)} startIndex={8} />
-        
-        <div style={{ 
-          marginTop: "30px", 
-          textAlign: "center",
-          fontSize: "12px",
-          color: "#888"
-        }}>
-          <p>Visit each booth and scan QR codes to collect stamps!</p>
-        </div>
       </div>
     </div>
   );
